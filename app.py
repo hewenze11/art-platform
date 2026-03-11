@@ -88,7 +88,11 @@ def init_db():
 
 @app.route("/")
 def index():
-    return send_file("templates/index.html")
+    resp = send_file("templates/index.html")
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 @app.route("/api/docs")
 def api_docs():
