@@ -258,22 +258,33 @@ PUBLIC_IP=$(curl -sf --max-time 3 https://api.ipify.org 2>/dev/null || \
             hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
 
 if [ "$READY" = "1" ]; then
+  # ── 复制使用手册到部署目录 ──
+  if [ -f "$SRC_DIR/USAGE.md" ]; then
+    cp "$SRC_DIR/USAGE.md" "$CONFIG_DIR/USAGE.md"
+  fi
+  if [ -f "$SRC_DIR/API_REFERENCE.md" ]; then
+    cp "$SRC_DIR/API_REFERENCE.md" "$CONFIG_DIR/API_REFERENCE.md"
+  fi
+
   echo ""
   echo -e "${GREEN}================================================${NC}"
   echo -e "${GREEN}   ✅ 部署成功！${NC}"
   echo -e "${GREEN}================================================${NC}"
   echo ""
-  echo -e "  🌐 访问地址：  ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
-  echo -e "  📖 AI接口文档：${YELLOW}http://${PUBLIC_IP}:${PORT}/api/docs${NC}"
-  echo -e "  📁 数据目录：  ${DATA_DIR}"
-  echo -e "  ⚙️  配置文件：  ${CONFIG_DIR}/project.yaml"
-  echo ""
-  echo -e "  ${CYAN}── 绑定项目（让 AI 填写或手动编辑）──${NC}"
+  echo -e "  🌐 访问地址：    ${YELLOW}http://${PUBLIC_IP}:${PORT}${NC}"
+  echo -e "  📖 在线接口文档：${YELLOW}http://${PUBLIC_IP}:${PORT}/api/docs${NC}"
+  echo -e ""
+  echo -e "  📄 本地文档："
+  echo -e "     使用手册：  ${CYAN}${CONFIG_DIR}/USAGE.md${NC}"
+  echo -e "     AI接口文档：${CYAN}${CONFIG_DIR}/API_REFERENCE.md${NC}"
+  echo -e "     项目配置：  ${CYAN}${CONFIG_DIR}/project.yaml${NC}"
+  echo -e ""
+  echo -e "  ── 下一步：绑定你的游戏项目 ──"
   echo -e "  ${CYAN}vi ${CONFIG_DIR}/project.yaml${NC}"
-  echo -e "  ${CYAN}或：${NC}"
+  echo -e "  ${CYAN}或通过 API：${NC}"
   echo -e "  ${CYAN}curl -X PUT http://localhost:${PORT}/api/config/project \\${NC}"
   echo -e "  ${CYAN}  -H 'Content-Type: application/json' \\${NC}"
-  echo -e "  ${CYAN}  -d '{\"project\":{\"name\":\"我的游戏\"},\"cicd\":{\"repo_url\":\"https://github.com/...\"}}'${NC}"
+  echo -e "  ${CYAN}  -d '{\"project\":{\"name\":\"我的游戏\"},\"cicd\":{\"repo_url\":\"https://github.com/...\"}}' ${NC}"
   echo ""
 else
   echo ""
