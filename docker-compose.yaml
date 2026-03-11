@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  art-platform:
+    image: art-platform:latest
+    # 如果不想自己构建镜像，可以改为从 GHCR 拉取：
+    # image: ghcr.io/your-org/art-platform:latest
+    build: .
+    container_name: art-platform
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8899}:8899"
+    volumes:
+      # 数据持久化（数据库 + 上传文件）
+      - ./data:/data
+      # 项目配置文件（编辑此文件来绑定项目）
+      - ./project.yaml:/app/project.yaml
+    environment:
+      - CONFIG_PATH=/app/project.yaml
+      - DATA_DIR=/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8899/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

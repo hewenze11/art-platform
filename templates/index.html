@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>美术资源审核平台</title>
+  <style>
+    :root {
+      --bg:#0f1117;--bg2:#1a1d27;--bg3:#242838;--border:#2d3148;
+      --accent:#5b6af0;--accent-h:#7280ff;--danger:#e05252;--danger-h:#f06060;
+      --success:#4caf82;--warn:#e0a040;--purple:#b06af0;
+      --text:#e2e4f0;--text2:#8890b0;--text3:#5a6080;
+      --radius:8px;--shadow:0 4px 24px rgba(0,0,0,.4);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{background:var(--bg);color:var(--text);font-family:'SF Pro Display','PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;}
+
+    .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+    .logo{font-size:18px;font-weight:700;color:var(--accent);}
+    .proj-name{font-size:13px;color:var(--text2);border-left:1px solid var(--border);padding-left:12px;margin-left:12px;}
+    .topbar-l{display:flex;align-items:center;}
+    .topbar-r{display:flex;gap:8px;}
+
+    .stats-bar{display:flex;gap:12px;padding:12px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+    .sc{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:8px 16px;min-width:78px;text-align:center;}
+    .sc .n{font-size:20px;font-weight:700;}.sc .l{font-size:11px;color:var(--text2);margin-top:2px;}
+    .sc-all .n{color:var(--accent);}.sc-pend .n{color:var(--text2);}.sc-rev .n{color:var(--warn);}
+    .sc-ok .n{color:var(--success);}.sc-rej .n{color:var(--danger);}
+
+    .layout{display:flex;height:calc(100vh - 120px);}
+    .sidebar{width:188px;min-width:188px;background:var(--bg2);border-right:1px solid var(--border);padding:14px 10px;overflow-y:auto;flex-shrink:0;}
+    .sidebar h4{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:0 4px 7px;}
+    .fb{display:flex;align-items:center;gap:6px;width:100%;padding:7px 10px;border-radius:6px;border:none;background:transparent;color:var(--text2);font-size:13px;cursor:pointer;text-align:left;transition:all .15s;margin-bottom:2px;}
+    .fb:hover{background:var(--bg3);color:var(--text);}.fb.active{background:rgba(91,106,240,.15);color:var(--accent);}
+    .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .d-all{background:var(--text3);}.d-pend{background:var(--text2);}.d-rev{background:var(--warn);}
+    .d-ok{background:var(--success);}.d-rej{background:var(--danger);}.d-chg{background:var(--purple);}
+    .sep{height:1px;background:var(--border);margin:10px 0;}
+
+    .content{flex:1;overflow-y:auto;padding:18px 22px;}
+    .list-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;}
+    .list-top h2{font-size:15px;font-weight:600;}.list-count{font-size:12px;color:var(--text2);}
+
+    .tc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 15px;margin-bottom:9px;cursor:pointer;transition:border-color .15s,box-shadow .15s;}
+    .tc:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(91,106,240,.25);}
+    .tc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+    .tc-title{font-size:14px;font-weight:600;flex:1;}
+    .tc-right{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+    .tc-meta{display:flex;gap:10px;margin-top:7px;font-size:12px;color:var(--text3);flex-wrap:wrap;}
+
+    .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;}
+    .tag-pending{background:rgba(136,144,176,.15);color:var(--text2);}
+    .tag-in_review{background:rgba(224,160,64,.15);color:var(--warn);}
+    .tag-approved{background:rgba(76,175,130,.15);color:var(--success);}
+    .tag-rejected{background:rgba(224,82,82,.15);color:var(--danger);}
+    .tag-changes_requested{background:rgba(176,106,240,.15);color:var(--purple);}
+    .prio-紧急{color:var(--danger);}.prio-高{color:var(--warn);}.prio-中{color:var(--text2);}.prio-低{color:var(--text3);}
+
+    /* 删除按钮 — 只在 pending 卡片上显示 */
+    .btn-del{padding:3px 9px;border-radius:5px;border:1px solid rgba(224,82,82,.35);background:transparent;color:var(--danger);font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+    .btn-del:hover{background:rgba(224,82,82,.15);border-color:var(--danger);}
+
+    .btn{padding:8px 16px;border-radius:6px;border:none;font-size:13px;cursor:pointer;transition:all .15s;font-weight:500;}
+    .btn-prim{background:var(--accent);color:#fff;}.btn-prim:hover{background:var(--accent-h);}
+    .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}.btn-ghost:hover{background:var(--bg3);color:var(--text);}
+    .btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover{background:var(--danger-h);}
+
+    .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
+    .ov.open{display:flex;}
+    .modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:520px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow);}
+    .modal-lg{width:680px;}.modal-sm{width:390px;}
+    .mh{padding:17px 22px 13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+    .mh h3{font-size:15px;font-weight:600;}
+    .mclose{background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;}
+    .mclose:hover{color:var(--text);}
+    .mb{padding:18px 22px;}
+    .mf{padding:13px 22px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+
+    .fg{margin-bottom:13px;}
+    .fg label{display:block;font-size:12px;color:var(--text2);margin-bottom:5px;font-weight:500;}
+    .fg input,.fg textarea,.fg select{width:100%;padding:8px 11px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;transition:border-color .15s;}
+    .fg input:focus,.fg textarea:focus,.fg select:focus{outline:none;border-color:var(--accent);}
+    .fg textarea{resize:vertical;min-height:75px;}
+    .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+    .kv{display:grid;grid-template-columns:90px 1fr;gap:5px 12px;font-size:13px;margin-bottom:15px;}
+    .kv .k{color:var(--text3);}.kv .v{color:var(--text);}
+    .dsec{margin-bottom:18px;}.dsec h4{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+    .rvc{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 12px;margin-bottom:6px;}
+    .rvc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:12px;}
+    .rvc-cmt{font-size:13px;color:var(--text2);}
+    .act-item{font-size:12px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border);}
+    .act-item:last-child{border-bottom:none;}
+
+    .empty{text-align:center;padding:60px 20px;color:var(--text3);}
+    .empty .icon{font-size:44px;margin-bottom:10px;}
+
+    .toast-wrap{position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:8px;}
+    .toast{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:13px;box-shadow:var(--shadow);animation:fin .2s;}
+    .toast.err{border-color:var(--danger);color:var(--danger);}
+    @keyframes fin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+    .kanban-wrap { display:flex; gap:14px; overflow-x:auto; padding-bottom:16px; min-height:calc(100vh - 200px); }
+    .kanban-col { width:240px; min-width:240px; background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); display:flex; flex-direction:column; }
+    .kanban-col-head { padding:10px 14px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:600; }
+    .kanban-col-body { flex:1; overflow-y:auto; padding:8px; }
+    .kanban-card { background:var(--bg3); border:1px solid var(--border); border-radius:6px; padding:10px 12px; margin-bottom:8px; cursor:pointer; font-size:13px; }
+    .kanban-card:hover { border-color:var(--accent); }
+    .batch-bar { background:var(--bg3); border:1px solid var(--accent); border-radius:8px; padding:8px 14px; margin-bottom:12px; display:flex; align-items:center; gap:10px; font-size:13px; }
+    .view-toggle { display:flex; gap:4px; }
+    .view-toggle .vbtn { padding:4px 10px; border-radius:5px; border:1px solid var(--border); background:transparent; color:var(--text2); font-size:12px; cursor:pointer; transition:all .15s; }
+    .view-toggle .vbtn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .tc-check { width:15px; height:15px; margin-right:8px; cursor:pointer; accent-color:var(--accent); flex-shrink:0; }
+    .batch-sel { display:flex; align-items:center; gap:6px; }
+    .batch-drop { position:relative; display:inline-block; }
+    .batch-drop-menu { display:none; position:absolute; top:100%; left:0; background:var(--bg2); border:1px solid var(--border); border-radius:6px; min-width:140px; z-index:200; box-shadow:var(--shadow); }
+    .batch-drop-menu.open { display:block; }
+    .batch-drop-item { padding:8px 14px; font-size:13px; cursor:pointer; color:var(--text2); white-space:nowrap; }
+    .batch-drop-item:hover { background:var(--bg3); color:var(--text); }
+    .batch-drop-item.danger { color:var(--danger); }
+
+    /* ── 文件附件预览区 ── */
+    .asset-strip{display:flex;gap:10px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:thin;}
+    .asset-strip::-webkit-scrollbar{height:4px;}
+    .asset-strip::-webkit-scrollbar-track{background:transparent;}
+    .asset-strip::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .asset-card{flex-shrink:0;width:120px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;}
+    .asset-thumb{height:80px;display:flex;align-items:center;justify-content:center;background:#0a0c14;cursor:pointer;overflow:hidden;}
+    .asset-thumb img{max-height:80px;max-width:100%;object-fit:cover;transition:opacity .15s;}
+    .asset-thumb img:hover{opacity:.85;}
+    .asset-thumb .file-icon{font-size:28px;}
+    .asset-info{padding:6px 7px;font-size:11px;color:var(--text3);}
+    .asset-info .fname{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px;}
+    .asset-info .fsize{margin-bottom:4px;}
+    .asset-dl{display:block;width:100%;padding:3px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--accent);font-size:11px;cursor:pointer;text-align:center;text-decoration:none;}
+    .asset-dl:hover{background:rgba(91,106,240,.12);}
+    .asset-empty{font-size:12px;color:var(--text3);padding:10px 0;}
+
+    /* 大图 overlay */
+    .img-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;align-items:center;justify-content:center;cursor:zoom-out;}
+    .img-overlay.open{display:flex;}
+    .img-overlay img{max-width:92vw;max-height:92vh;border-radius:6px;box-shadow:var(--shadow);}
+
+    /* ── 评论区 ── */
+    .comment-section{margin-top:4px;}
+    .comment-list{margin-bottom:12px;max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin;}
+    .comment-list::-webkit-scrollbar{width:4px;}
+    .comment-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+    .comment-item{display:flex;gap:10px;align-items:flex-start;}
+    .comment-avatar{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .comment-body{flex:1;}
+    .comment-meta{display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+    .comment-author{font-size:13px;font-weight:600;}
+    .comment-time{font-size:11px;color:var(--text3);}
+    .comment-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;padding:0;margin-left:auto;}
+    .comment-del:hover{color:var(--danger);}
+    .comment-content{font-size:13px;color:var(--text2);line-height:1.6;}
+    .comment-empty{font-size:12px;color:var(--text3);text-align:center;padding:14px 0;}
+    .comment-input{display:flex;flex-direction:column;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;}
+    .comment-input-row{display:flex;gap:8px;align-items:flex-end;}
+    .comment-input select{padding:7px 9px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:12px;cursor:pointer;}
+    .comment-input select:focus{outline:none;border-color:var(--accent);}
+    .comment-input textarea{flex:1;min-height:60px;resize:vertical;padding:7px 9px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;font-family:inherit;}
+    .comment-input textarea:focus{outline:none;border-color:var(--accent);}
+    .comment-send{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:5px;font-size:13px;cursor:pointer;white-space:nowrap;align-self:flex-end;}
+    .comment-send:hover{background:var(--accent-h);}
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-l">
+    <div class="logo">🎨 ArtHub</div>
+    <div class="proj-name" id="projName">加载中…</div>
+  </div>
+  <div class="topbar-r">
+    <button class="btn btn-ghost" onclick="openCfg()">⚙️ 项目配置</button>
+    <button class="btn btn-prim" onclick="openNew()">＋ 新建任务</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="sc sc-all"><div class="n" id="st-total">-</div><div class="l">全部</div></div>
+  <div class="sc sc-pend"><div class="n" id="st-pending">-</div><div class="l">待认领</div></div>
+  <div class="sc sc-rev"><div class="n" id="st-review">-</div><div class="l">审核中</div></div>
+  <div class="sc sc-ok"><div class="n" id="st-ok">-</div><div class="l">已通过</div></div>
+  <div class="sc sc-rej"><div class="n" id="st-rej">-</div><div class="l">已拒绝</div></div>
+</div>
+
+<div class="layout">
+  <div class="sidebar">
+    <h4>任务状态</h4>
+    <button class="fb active" onclick="setStatus(this,'')"><span class="dot d-all"></span>全部</button>
+    <button class="fb" onclick="setStatus(this,'pending')"><span class="dot d-pend"></span>待认领</button>
+    <button class="fb" onclick="setStatus(this,'in_review')"><span class="dot d-rev"></span>审核中</button>
+    <button class="fb" onclick="setStatus(this,'approved')"><span class="dot d-ok"></span>已通过</button>
+    <button class="fb" onclick="setStatus(this,'rejected')"><span class="dot d-rej"></span>已拒绝</button>
+    <button class="fb" onclick="setStatus(this,'changes_requested')"><span class="dot d-chg"></span>需修改</button>
+    <div class="sep"></div>
+    <h4>分类</h4>
+    <div id="catBtns"></div>
+  </div>
+
+  <div class="content">
+    <div class="list-top">
+      <h2>任务列表</h2>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="list-count" id="listCount"></span>
+        <div class="view-toggle">
+          <button class="vbtn active" id="vbtn-list" onclick="setView('list')">☰ 列表</button>
+          <button class="vbtn" id="vbtn-kanban" onclick="setView('kanban')">⬛ 看板</button>
+        </div>
+      </div>
+    </div>
+    <div id="batchBar" class="batch-bar" style="display:none;">
+      <span id="batchCount">已选 0 个</span>
+      <div class="batch-drop">
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px;" onclick="toggleBatchMenu()">批量操作 ▾</button>
+        <div class="batch-drop-menu" id="batchMenu">
+          <div class="batch-drop-item danger" onclick="batchDelete()">🗑 批量删除</div>
+          <div class="batch-drop-item" onclick="batchUpdate({priority:'紧急'})">🔥 批量改为紧急</div>
+          <div class="batch-drop-item" onclick="batchUpdate({priority:'高'})">⬆ 批量改为高</div>
+        </div>
+      </div>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px;" onclick="clearSelection()">✕ 取消</button>
+    </div>
+    <div id="taskList"></div>
+  </div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 大图预览 overlay -->
+<div class="img-overlay" id="imgOverlay" onclick="document.getElementById('imgOverlay').classList.remove('open')">
+  <img id="imgOverlayImg" src="" alt="预览"/>
+</div>
+
+<!-- 新建任务 -->
+<div class="ov" id="newModal">
+  <div class="modal">
+    <div class="mh"><h3>新建任务</h3><button class="mclose" onclick="close_('newModal')">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>任务标题 *</label><input id="nt-title" placeholder="描述这个美术资源任务…"/></div>
+      <div class="fg"><label>详细描述</label><textarea id="nt-desc" placeholder="风格要求、参考资料…"></textarea></div>
+      <div class="frow">
+        <div class="fg"><label>分类</label><select id="nt-cat"></select></div>
+        <div class="fg"><label>优先级</label><select id="nt-prio"></select></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>创建人</label><input id="nt-creator" placeholder="你的名字"/></div>
+        <div class="fg"><label>截止日期</label><input type="date" id="nt-due"/></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="close_('newModal')">取消</button>
+      <button class="btn btn-prim" onclick="submitNew()">创建任务</button>
+    </div>
+  </div>
+</div>
+
+<!-- 任务详情 -->
+<div class="ov" id="detailModal">
+  <div class="modal modal-lg">
+    <div class="mh"><h3 id="d-title">任务详情</h3><button class="mclose" onclick="close_('detailModal')">✕</button></div>
+    <div class="mb" id="d-body"></div>
+    <div class="mf" id="d-footer"></div>
+  </div>
+</div>
+
+<!-- 认领/审核操作 -->
+<div class="ov" id="actModal">
+  <div class="modal">
+    <div class="mh"><h3 id="am-title">操作</h3><button class="mclose" onclick="close_('actModal')">✕</button></div>
+    <div class="mb" id="am-body"></div>
+    <div class="mf" id="am-footer"></div>
+  </div>
+</div>
+
+<!-- 删除确认 -->
+<div class="ov" id="delModal">
+  <div class="modal modal-sm">
+    <div class="mh"><h3>确认删除</h3><button class="mclose" onclick="close_('delModal')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:14px;font-weight:600;margin-bottom:10px;">⚠️ 此操作不可恢复</p>
+      <p style="font-size:13px;color:var(--text2);line-height:1.7;" id="del-msg"></p>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="close_('delModal')">取消</button>
+      <button class="btn btn-danger" onclick="doDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 项目配置 -->
+<div class="ov" id="cfgModal">
+  <div class="modal">
+    <div class="mh"><h3>⚙️ 项目配置（project.yaml）</h3><button class="mclose" onclick="close_('cfgModal')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">填写后平台即绑定至对应游戏项目，CI/CD 与通知均依赖此配置。</p>
+      <div class="fg"><label>配置内容（YAML）</label><textarea id="cfg-txt" style="min-height:340px;font-family:monospace;font-size:12px;"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost" onclick="close_('cfgModal')">取消</button>
+      <button class="btn btn-prim" onclick="saveCfg()">保存配置</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SL={pending:'待认领',in_review:'审核中',approved:'已通过',rejected:'已拒绝',changes_requested:'需修改'};
+const STATUS_COLOR={pending:'var(--text2)',in_review:'var(--warn)',approved:'var(--success)',rejected:'var(--danger)',changes_requested:'var(--purple)'};
+let fStatus='',fCat='',cfg={},pendingDelId=null,currentView='list';
+let selectedIds=new Set();
+
+async function init(){
+  await loadCfg();
+  await Promise.all([loadStats(),loadTasks()]);
+}
+
+async function loadCfg(){
+  cfg=await(await fetch('/api/config')).json();
+  document.getElementById('projName').textContent=cfg.project?.name||'美术审核平台';
+  const cats=cfg.review?.categories||[];
+  const prios=cfg.review?.priorities||[];
+  document.getElementById('nt-cat').innerHTML=cats.map(c=>`<option>${c}</option>`).join('');
+  document.getElementById('nt-prio').innerHTML=prios.map(p=>`<option>${p}</option>`).join('');
+  document.getElementById('catBtns').innerHTML=
+    `<button class="fb active" onclick="setCat(this,'')">全部</button>`+
+    cats.map(c=>`<button class="fb" onclick="setCat(this,'${c}')">${c}</button>`).join('');
+}
+
+async function loadStats(){
+  const s=await(await fetch('/api/stats')).json();
+  document.getElementById('st-total').textContent=s.total;
+  document.getElementById('st-pending').textContent=s.pending;
+  document.getElementById('st-review').textContent=s.in_review;
+  document.getElementById('st-ok').textContent=s.approved;
+  document.getElementById('st-rej').textContent=s.rejected;
+}
+
+async function loadTasks(){
+  if(currentView==='kanban'){await renderKanban();return;}
+  const p=new URLSearchParams();
+  if(fStatus)p.set('status',fStatus);
+  if(fCat)p.set('category',fCat);
+  const tasks=await(await fetch('/api/tasks?'+p)).json();
+  document.getElementById('listCount').textContent=`共 ${tasks.length} 条`;
+  const el=document.getElementById('taskList');
+  clearSelection();
+  if(!tasks.length){el.innerHTML='<div class="empty"><div class="icon">📭</div><p>暂无任务</p></div>';return;}
+  el.innerHTML=tasks.map(t=>{
+    const delBtn=t.status==='pending'
+      ?`<button class="btn-del" onclick="askDel(event,'${t.id}','${esc(t.title)}')">🗑 删除</button>`:'';
+    return `<div class="tc" onclick="openDetail('${t.id}')">
+      <div class="tc-top">
+        <input type="checkbox" class="tc-check" data-id="${t.id}" onclick="event.stopPropagation();toggleCheck(this)" />
+        <div class="tc-title">${esc(t.title)}</div>
+        <div class="tc-right">${delBtn}<span class="tag tag-${t.status}">${SL[t.status]||t.status}</span></div>
+      </div>
+      <div class="tc-meta">
+        <span>📁 ${t.category||'其他'}</span>
+        <span class="prio-${t.priority}">🔥 ${t.priority||'中'}</span>
+        <span>${t.assignee?'👤 '+t.assignee:'未认领'}</span>
+        ${t.due_date?`<span>📅 ${t.due_date}</span>`:''}
+        <span>🕐 ${fmtDate(t.created_at)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 视图切换 ──
+function setView(v){
+  currentView=v;
+  document.getElementById('vbtn-list').classList.toggle('active',v==='list');
+  document.getElementById('vbtn-kanban').classList.toggle('active',v==='kanban');
+  document.getElementById('batchBar').style.display='none';
+  clearSelection();
+  loadTasks();
+}
+
+// ── 看板视图 ──
+async function renderKanban(){
+  // 拿所有任务（不带 status 筛选）
+  const p=new URLSearchParams();
+  if(fCat)p.set('category',fCat);
+  const tasks=await(await fetch('/api/tasks?'+(fCat?p:''))).json();
+  document.getElementById('listCount').textContent=`共 ${tasks.length} 条`;
+
+  const cols=[
+    {key:'pending',      label:'待认领'},
+    {key:'in_review',    label:'审核中'},
+    {key:'changes_requested',label:'需修改'},
+    {key:'approved',     label:'已通过'},
+    {key:'rejected',     label:'已拒绝'},
+  ];
+
+  const grouped={};
+  cols.forEach(c=>grouped[c.key]=[]);
+  tasks.forEach(t=>{if(grouped[t.status]!==undefined)grouped[t.status].push(t);});
+
+  const el=document.getElementById('taskList');
+  el.innerHTML=`<div class="kanban-wrap">${cols.map(col=>{
+    const list=grouped[col.key];
+    const cards=list.map(t=>{
+      const delBtn=t.status==='pending'
+        ?`<div style="margin-top:6px;text-align:right"><button class="btn-del" style="font-size:11px;" onclick="askDel(event,'${t.id}','${esc(t.title)}')">🗑 删除</button></div>`:'';
+      return `<div class="kanban-card" onclick="openDetail('${t.id}')">
+        <div style="font-weight:600;margin-bottom:5px;">${esc(t.title)}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          <span class="tag" style="background:var(--bg2);color:var(--text3);">📁 ${t.category||'其他'}</span>
+          <span class="prio-${t.priority}" style="font-size:11px;">🔥 ${t.priority||'中'}</span>
+          ${t.assignee?`<span style="font-size:11px;color:var(--text3);">👤 ${esc(t.assignee)}</span>`:''}
+        </div>${delBtn}
+      </div>`;
+    }).join('');
+    return `<div class="kanban-col">
+      <div class="kanban-col-head">
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${STATUS_COLOR[col.key]||'var(--text3)'};display:inline-block;"></span>
+          ${col.label}
+        </span>
+        <span style="background:var(--bg);border-radius:10px;padding:1px 8px;font-size:11px;color:var(--text2);">${list.length}</span>
+      </div>
+      <div class="kanban-col-body">${cards||'<div style="color:var(--text3);text-align:center;font-size:12px;padding:20px 0;">暂无任务</div>'}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ── 批量操作 ──
+function toggleCheck(cb){
+  const id=cb.dataset.id;
+  if(cb.checked)selectedIds.add(id);
+  else selectedIds.delete(id);
+  updateBatchBar();
+}
+
+function updateBatchBar(){
+  const bar=document.getElementById('batchBar');
+  const n=selectedIds.size;
+  if(n>0){
+    bar.style.display='flex';
+    document.getElementById('batchCount').textContent=`已选 ${n} 个`;
+  }else{
+    bar.style.display='none';
+  }
+}
+
+function clearSelection(){
+  selectedIds.clear();
+  document.querySelectorAll('.tc-check').forEach(cb=>cb.checked=false);
+  updateBatchBar();
+}
+
+function toggleBatchMenu(){
+  document.getElementById('batchMenu').classList.toggle('open');
+}
+
+// 关闭批量菜单（点击外部）
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('batchMenu');
+  if(menu&&!menu.parentElement.contains(e.target))menu.classList.remove('open');
+});
+
+async function batchDelete(){
+  document.getElementById('batchMenu').classList.remove('open');
+  if(!selectedIds.size)return;
+  const ids=[...selectedIds];
+  pendingDelId=null; // 批量模式
+  document.getElementById('del-msg').innerHTML=
+    `将删除已选的 <strong>${ids.length}</strong> 个任务（仅限「待认领」状态），删除后数据无法恢复。`;
+  // 复用 delModal，但替换 doDelete 逻辑
+  document.getElementById('delModal').dataset.batchIds=ids.join(',');
+  open_('delModal');
+}
+
+async function batchUpdate(upd){
+  document.getElementById('batchMenu').classList.remove('open');
+  if(!selectedIds.size)return;
+  const ids=[...selectedIds];
+  const r=await fetch('/api/tasks/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,action:'update',data:upd})});
+  const d=await r.json();
+  if(r.ok){
+    toast(`✅ 已更新 ${d.processed} 个任务${d.skipped?'，跳过 '+d.skipped+' 个':''}`);
+    clearSelection();loadStats();loadTasks();
+  }else toast('❌ '+(d.error||'操作失败'),true);
+}
+
+function setStatus(btn,v){
+  fStatus=v;
+  document.querySelectorAll('.sidebar .fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTasks();
+}
+function setCat(btn,v){
+  fCat=v;
+  document.querySelectorAll('#catBtns .fb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTasks();
+}
+
+// ── 删除 ──
+function askDel(e,id,title){
+  e.stopPropagation();
+  pendingDelId=id;
+  document.getElementById('del-msg').innerHTML=
+    `将删除任务：<strong>「${esc(title)}」</strong><br><br>只有状态为「待认领」的任务可以删除，删除后数据无法恢复。`;
+  delete document.getElementById('delModal').dataset.batchIds;
+  open_('delModal');
+}
+async function doDelete(){
+  const modal=document.getElementById('delModal');
+  const batchIds=modal.dataset.batchIds;
+  if(batchIds){
+    // 批量删除
+    const ids=batchIds.split(',').filter(Boolean);
+    const r=await fetch('/api/tasks/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,action:'delete'})});
+    const d=await r.json();
+    close_('delModal');
+    delete modal.dataset.batchIds;
+    if(r.ok){
+      toast(`✅ 已删除 ${d.processed} 个任务${d.skipped?'，跳过 '+d.skipped+' 个（非pending状态）':''}`);
+      clearSelection();loadStats();loadTasks();
+    }else toast('❌ '+(d.error||'删除失败'),true);
+    return;
+  }
+  if(!pendingDelId)return;
+  const r=await fetch(`/api/tasks/${pendingDelId}`,{method:'DELETE'});
+  const d=await r.json();
+  close_('delModal');
+  if(r.ok){toast('✅ 任务已删除');loadStats();loadTasks();}
+  else toast('❌ '+(d.error||'删除失败'),true);
+  pendingDelId=null;
+}
+
+// ── 新建 ──
+function openNew(){open_('newModal');}
+async function submitNew(){
+  const title=document.getElementById('nt-title').value.trim();
+  if(!title){toast('请填写任务标题',true);return;}
+  const r=await fetch('/api/tasks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    title,description:document.getElementById('nt-desc').value.trim(),
+    category:document.getElementById('nt-cat').value,
+    priority:document.getElementById('nt-prio').value,
+    created_by:document.getElementById('nt-creator').value.trim(),
+    due_date:document.getElementById('nt-due').value,
+  })});
+  const d=await r.json();
+  if(r.ok){
+    close_('newModal');
+    ['nt-title','nt-desc','nt-creator','nt-due'].forEach(id=>document.getElementById(id).value='');
+    toast('✅ 任务创建成功');loadStats();loadTasks();
+  }else toast('❌ '+(d.error||'创建失败'),true);
+}
+
+// ── 详情 ──
+let _detailTaskId = null;
+
+async function openDetail(id){
+  _detailTaskId = id;
+  const t=await(await fetch(`/api/tasks/${id}`)).json();
+  document.getElementById('d-title').textContent=t.title;
+  const rvHtml=(t.reviews||[]).length
+    ?'<div class="dsec"><h4>审核记录</h4>'+t.reviews.map(rv=>`
+      <div class="rvc">
+        <div class="rvc-top"><span>${rv.reviewer}</span><span class="tag tag-${rv.status}">${SL[rv.status]||rv.status}</span><span style="color:var(--text3)">${fmtDate(rv.created_at)}</span></div>
+        ${rv.comment?`<div class="rvc-cmt">${esc(rv.comment)}</div>`:''}
+      </div>`).join('')+'</div>':'';
+  const actHtml=(t.activity||[]).length
+    ?'<div class="dsec"><h4>活动日志</h4>'+t.activity.map(a=>
+      `<div class="act-item">${fmtDate(a.created_at)} · ${a.action}${a.actor?' · '+a.actor:''}${a.detail?' — '+esc(String(a.detail).slice(0,60)):''}</div>`
+    ).join('')+'</div>':'';
+  document.getElementById('d-body').innerHTML=`
+    <div class="dsec">
+      <div class="kv">
+        <span class="k">状态</span><span class="v"><span class="tag tag-${t.status}">${SL[t.status]||t.status}</span></span>
+        <span class="k">分类</span><span class="v">${t.category||'—'}</span>
+        <span class="k">优先级</span><span class="v prio-${t.priority}">${t.priority||'—'}</span>
+        <span class="k">认领人</span><span class="v">${t.assignee||'未认领'}</span>
+        <span class="k">创建人</span><span class="v">${t.created_by||'—'}</span>
+        <span class="k">截止日期</span><span class="v">${t.due_date||'—'}</span>
+        <span class="k">创建时间</span><span class="v">${fmtDate(t.created_at)}</span>
+      </div>
+      ${t.description?`<p style="font-size:13px;color:var(--text2);margin-bottom:14px;">${esc(t.description)}</p>`:''}
+    </div>
+    <div class="dsec" id="d-assets">
+      <h4>附件预览</h4>
+      <div class="asset-strip" id="assetStrip"><span class="asset-empty">加载中…</span></div>
+    </div>
+    ${rvHtml}${actHtml}
+    <div class="dsec comment-section" id="d-comments">
+      <h4>评论</h4>
+      <div class="comment-list" id="commentList"><span class="comment-empty">加载中…</span></div>
+      <div class="comment-input">
+        <div class="comment-input-row">
+          <select id="cmt-author">${(cfg.review?.reviewers||[]).map(r=>`<option>${r}</option>`).join('')}</select>
+          <textarea id="cmt-content" placeholder="写下你的评论…"></textarea>
+          <button class="comment-send" onclick="submitComment('${id}')">发送</button>
+        </div>
+      </div>
+    </div>`;
+  let btns=`<button class="btn btn-ghost" onclick="close_('detailModal')">关闭</button>`;
+  if(t.status==='pending') btns+=`<button class="btn btn-prim" onclick="openClaim('${id}')">认领任务</button>`;
+  else if(t.status==='in_review'||t.status==='changes_requested') btns+=`<button class="btn btn-prim" onclick="openReview('${id}')">提交审核</button>`;
+  document.getElementById('d-footer').innerHTML=btns;
+  open_('detailModal');
+  loadDetailAssets(id);
+  loadDetailComments(id);
+}
+
+function fmtSize(bytes){
+  if(!bytes)return'';
+  if(bytes<1024)return bytes+'B';
+  if(bytes<1024*1024)return(bytes/1024).toFixed(1)+'KB';
+  return(bytes/1024/1024).toFixed(1)+'MB';
+}
+
+function imgExt(name){
+  return /\.(png|jpg|jpeg|gif|webp)$/i.test(name||'');
+}
+
+async function loadDetailAssets(taskId){
+  const strip=document.getElementById('assetStrip');
+  if(!strip)return;
+  try{
+    const assets=await(await fetch(`/api/tasks/${taskId}/assets`)).json();
+    if(!assets.length){strip.innerHTML='<span class="asset-empty">暂无附件</span>';return;}
+    strip.innerHTML=assets.map(a=>{
+      const url=`/api/uploads/${taskId}/${a.filename}`;
+      const isImg=imgExt(a.original||a.filename);
+      const thumb=isImg
+        ?`<div class="asset-thumb" onclick="showImgOverlay('${url}')"><img src="${url}" alt="${esc(a.original||a.filename)}" loading="lazy"/></div>`
+        :`<div class="asset-thumb" style="cursor:default"><span class="file-icon">${fileIcon(a.original||a.filename)}</span></div>`;
+      return `<div class="asset-card">
+        ${thumb}
+        <div class="asset-info">
+          <div class="fname" title="${esc(a.original||a.filename)}">${esc(a.original||a.filename)}</div>
+          <div class="fsize">${fmtSize(a.file_size)}</div>
+          <a class="asset-dl" href="${url}" download="${esc(a.original||a.filename)}">⬇ 下载</a>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){strip.innerHTML='<span class="asset-empty">加载失败</span>';}
+}
+
+function fileIcon(name){
+  const ext=(name||'').split('.').pop().toLowerCase();
+  const map={psd:'🎨',svg:'🖼',mp4:'🎬',fbx:'📦',obj:'📦',pdf:'📄',zip:'🗜',rar:'🗜'};
+  return map[ext]||'📎';
+}
+
+function showImgOverlay(url){
+  const ov=document.getElementById('imgOverlay');
+  document.getElementById('imgOverlayImg').src=url;
+  ov.classList.add('open');
+}
+
+async function loadDetailComments(taskId){
+  const list=document.getElementById('commentList');
+  if(!list)return;
+  try{
+    const comments=await(await fetch(`/api/tasks/${taskId}/comments`)).json();
+    if(!comments.length){list.innerHTML='<span class="comment-empty">暂无评论，来抢沙发吧！</span>';return;}
+    list.innerHTML=comments.map(c=>`
+      <div class="comment-item" data-cid="${c.id}">
+        <div class="comment-avatar">${esc((c.author||'?')[0].toUpperCase())}</div>
+        <div class="comment-body">
+          <div class="comment-meta">
+            <span class="comment-author">${esc(c.author)}</span>
+            <span class="comment-time">${fmtDate(c.created_at)}</span>
+            <button class="comment-del" title="删除评论" onclick="deleteComment('${taskId}','${c.id}')">🗑</button>
+          </div>
+          <div class="comment-content">${esc(c.content)}</div>
+        </div>
+      </div>`).join('');
+    list.scrollTop=list.scrollHeight;
+  }catch(e){list.innerHTML='<span class="comment-empty">加载失败</span>';}
+}
+
+async function submitComment(taskId){
+  const author=document.getElementById('cmt-author')?.value||'';
+  const content=document.getElementById('cmt-content')?.value.trim()||'';
+  if(!content){toast('请输入评论内容',true);return;}
+  const r=await fetch(`/api/tasks/${taskId}/comments`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({author,content})});
+  const d=await r.json();
+  if(r.ok){
+    document.getElementById('cmt-content').value='';
+    await loadDetailComments(taskId);
+  }else toast('❌ '+(d.error||'发送失败'),true);
+}
+
+async function deleteComment(taskId,commentId){
+  const r=await fetch(`/api/tasks/${taskId}/comments/${commentId}`,{method:'DELETE'});
+  if(r.ok){await loadDetailComments(taskId);}
+  else toast('❌ 删除评论失败',true);
+}
+
+// ── 认领 ──
+function openClaim(id){
+  close_('detailModal');
+  document.getElementById('am-title').textContent='认领任务';
+  document.getElementById('am-body').innerHTML=`
+    <div class="fg"><label>审核员</label>
+      <select id="cl-name">${(cfg.review?.reviewers||[]).map(r=>`<option>${r}</option>`).join('')}</select>
+    </div>`;
+  document.getElementById('am-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="close_('actModal')">取消</button>
+    <button class="btn btn-prim" onclick="doClaim('${id}')">确认认领</button>`;
+  open_('actModal');
+}
+async function doClaim(id){
+  const r=await fetch(`/api/tasks/${id}/claim`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({assignee:document.getElementById('cl-name').value})});
+  const d=await r.json();
+  if(r.ok){close_('actModal');toast('✅ 任务已认领');loadStats();loadTasks();}
+  else toast('❌ '+(d.error||'认领失败'),true);
+}
+
+// ── 审核 ──
+function openReview(id){
+  close_('detailModal');
+  document.getElementById('am-title').textContent='提交审核';
+  document.getElementById('am-body').innerHTML=`
+    <div class="fg"><label>审核员</label>
+      <select id="rv-name">${(cfg.review?.reviewers||[]).map(r=>`<option>${r}</option>`).join('')}</select>
+    </div>
+    <div class="fg"><label>审核结果</label>
+      <select id="rv-status">
+        <option value="approved">✅ 通过</option>
+        <option value="changes_requested">🔄 需要修改</option>
+        <option value="rejected">❌ 拒绝</option>
+      </select>
+    </div>
+    <div class="fg"><label>审核意见</label><textarea id="rv-cmt" placeholder="填写反馈内容…"></textarea></div>`;
+  document.getElementById('am-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="close_('actModal')">取消</button>
+    <button class="btn btn-prim" onclick="doReview('${id}')">提交</button>`;
+  open_('actModal');
+}
+async function doReview(id){
+  const r=await fetch(`/api/tasks/${id}/review`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    reviewer:document.getElementById('rv-name').value,
+    status:document.getElementById('rv-status').value,
+    comment:document.getElementById('rv-cmt').value.trim(),
+  })});
+  const d=await r.json();
+  if(r.ok){close_('actModal');toast('✅ 审核已提交');loadStats();loadTasks();}
+  else toast('❌ '+(d.error||'提交失败'),true);
+}
+
+// ── 配置 ──
+async function openCfg(){
+  const txt=await(await fetch('/api/config/project')).text();
+  document.getElementById('cfg-txt').value=txt;
+  open_('cfgModal');
+}
+async function saveCfg(){
+  const txt=document.getElementById('cfg-txt').value;
+  const r=await fetch('/api/config/project/raw',{method:'PUT',headers:{'Content-Type':'text/plain'},body:txt});
+  if(r.ok){close_('cfgModal');toast('✅ 配置已保存');loadCfg();}
+  else toast('❌ 保存失败',true);
+}
+
+// ── 工具 ──
+function open_(id){document.getElementById(id).classList.add('open');}
+function close_(id){document.getElementById(id).classList.remove('open');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDate(s){if(!s)return'—';const d=new Date(s);return isNaN(d)?s:d.toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
+function toast(msg,err=false){
+  const w=document.getElementById('toastWrap');
+  const el=document.createElement('div');
+  el.className='toast'+(err?' err':'');
+  el.textContent=msg;
+  w.appendChild(el);
+  setTimeout(()=>el.remove(),3000);
+}
+
+// 点击遮罩关闭
+document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',e=>{if(e.target===ov)ov.classList.remove('open');}));
+
+init();
+</script>
+</body>
+</html>
