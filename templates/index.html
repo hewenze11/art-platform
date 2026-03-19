@@ -3,32 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Art Platform - 美术资源管理</title>
+<title>Art Platform</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans">
 
-<!-- 顶部 -->
 <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
   <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
     <div class="flex items-center gap-3">
       <span class="text-2xl">🎨</span>
       <h1 class="text-lg font-bold text-gray-800">Art Platform</h1>
     </div>
-    <div class="flex items-center gap-3 text-sm">
+    <div class="flex items-center gap-2 text-sm flex-wrap">
       <span class="text-gray-500">资源位 <b id="st-slots">-</b></span>
       <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">● 绿 <b id="st-active">-</b></span>
       <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">● 黄 <b id="st-inactive">-</b></span>
       <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">● 红 <b id="st-pending">-</b></span>
+      <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-medium">📦 <b id="st-ph">-</b></span>
     </div>
     <div class="flex gap-2">
+      <button onclick="openPlaceholderLib()" class="px-3 py-1.5 text-sm bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200">📦 占位库</button>
       <button onclick="openCreateSlot()" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">+ 新建资源位</button>
       <button onclick="openSyncPreview()" class="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold">⚡ SYNC</button>
     </div>
   </div>
 </header>
 
-<!-- 主体 -->
 <main class="max-w-6xl mx-auto px-4 py-6">
   <div class="flex gap-2 mb-4 flex-wrap">
     <select id="filter-type" onchange="loadSlots()" class="text-sm border rounded-lg px-2 py-1.5 text-gray-600">
@@ -48,48 +48,47 @@
   <div id="empty-tip" class="hidden text-center py-20 text-gray-400">暂无资源位，点击「新建资源位」开始</div>
 </main>
 
-<!-- Modal：资源位详情 -->
-<div id="modal-slot" class="hidden fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-10 px-4 overflow-y-auto">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mb-10">
-    <div class="flex items-center justify-between px-6 py-4 border-b">
+<!-- Modal 资源位详情 -->
+<div id="modal-slot" class="hidden fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-6 px-4 overflow-y-auto pb-10">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+    <div class="flex items-start justify-between px-6 py-4 border-b">
       <div>
         <h2 class="text-lg font-bold text-gray-800" id="modal-slot-title"></h2>
-        <div class="flex gap-2 mt-1">
+        <div class="flex gap-2 mt-1 flex-wrap">
           <span id="modal-game-key" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded font-mono text-xs"></span>
           <span id="modal-asset-type" class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs"></span>
           <span id="modal-category" class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs"></span>
         </div>
+        <p id="modal-description" class="text-xs text-gray-400 mt-1"></p>
       </div>
-      <button onclick="closeModal('modal-slot')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
+      <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+        <button onclick="doDeleteSlot()" class="px-2 py-1 text-xs text-red-500 border border-red-200 rounded hover:bg-red-50">删除资源位</button>
+        <button onclick="closeModal('modal-slot')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+      </div>
     </div>
     <div class="px-6 py-4 space-y-4">
-      <p id="modal-description" class="text-sm text-gray-500"></p>
-
-      <!-- 上传区 -->
       <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-2">
-        <p class="text-sm font-medium text-gray-700">添加资源 <span class="text-xs text-gray-400 font-normal">（添加后默认为「未使用」黄色，需手动激活）</span></p>
+        <p class="text-sm font-medium text-gray-700">添加资源 <span class="text-xs text-gray-400 font-normal">添加后默认黄色（未使用），需手动激活</span></p>
         <div class="flex gap-2 flex-wrap">
           <input type="file" id="upload-file" class="text-sm text-gray-600 flex-1 min-w-0 border rounded px-2 py-1">
-          <input type="text" id="upload-note" placeholder="备注（可选）" class="text-sm border rounded-lg px-2 py-1 w-36">
-          <button onclick="doUpload()" class="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 whitespace-nowrap">上传文件</button>
+          <input type="text" id="upload-note" placeholder="备注" class="text-sm border rounded-lg px-2 py-1 w-28">
+          <button onclick="doUpload()" class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 whitespace-nowrap">上传文件</button>
         </div>
         <div class="flex gap-2">
           <input type="text" id="add-url-input" placeholder="或粘贴 URL（音乐/图片链接）" class="text-sm border rounded-lg px-2 py-1 flex-1">
           <button onclick="doAddUrl()" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 whitespace-nowrap">添加URL</button>
         </div>
       </div>
-
-      <!-- 资源列表 -->
       <div>
         <p class="text-sm font-medium text-gray-700 mb-2">资源列表</p>
-        <div id="resource-list" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+        <div id="resource-list" class="space-y-3 max-h-96 overflow-y-auto pr-1"></div>
         <div id="resource-empty" class="hidden text-sm text-gray-400 py-6 text-center">还没有任何资源</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal：新建资源位 -->
+<!-- Modal 新建资源位 -->
 <div id="modal-create" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
     <div class="flex items-center justify-between px-6 py-4 border-b">
@@ -111,16 +110,13 @@
         <div>
           <label class="text-xs text-gray-500 mb-1 block">资源类型</label>
           <select id="c-type" class="w-full border rounded-lg px-3 py-2 text-sm">
-            <option value="image">🖼 图片</option>
-            <option value="audio">🎵 音频</option>
-            <option value="video">🎬 视频</option>
+            <option value="image">🖼 图片</option><option value="audio">🎵 音频</option><option value="video">🎬 视频</option>
           </select>
         </div>
         <div>
           <label class="text-xs text-gray-500 mb-1 block">分类</label>
           <select id="c-cat" class="w-full border rounded-lg px-3 py-2 text-sm">
-            <option>角色</option><option>场景</option><option>UI</option>
-            <option>特效</option><option>音效</option><option>其他</option>
+            <option>角色</option><option>场景</option><option>UI</option><option>特效</option><option>音效</option><option>其他</option>
           </select>
         </div>
       </div>
@@ -129,7 +125,7 @@
         <input id="c-desc" type="text" placeholder="说明这个资源位用在哪里" class="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-indigo-300">
       </div>
       <div>
-        <label class="text-xs text-gray-500 mb-1 block">Metadata（JSON，可选）</label>
+        <label class="text-xs text-gray-500 mb-1 block">Metadata（JSON）</label>
         <input id="c-meta" type="text" placeholder='{"width":64,"height":64}' class="w-full border rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 ring-indigo-300">
       </div>
       <div class="flex justify-end gap-2 pt-2">
@@ -140,7 +136,7 @@
   </div>
 </div>
 
-<!-- Modal：Sync 预览 -->
+<!-- Modal Sync -->
 <div id="modal-sync" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
     <div class="flex items-center justify-between px-6 py-4 border-b">
@@ -149,11 +145,11 @@
     </div>
     <div class="px-6 py-4 space-y-4">
       <div>
-        <p class="text-sm font-semibold text-red-700 mb-2">🗑️ 将被彻底删除（红色资源）</p>
+        <p class="text-sm font-semibold text-red-700 mb-2">🗑️ 将彻底删除（红色资源）</p>
         <div id="sync-delete-list" class="text-sm text-gray-600 space-y-1 max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3"></div>
       </div>
       <div>
-        <p class="text-sm font-semibold text-green-700 mb-1">✅ Manifest 将生效的资源数</p>
+        <p class="text-sm font-semibold text-green-700 mb-1">✅ Manifest 将生效</p>
         <div id="sync-manifest-count" class="text-sm text-gray-600 bg-green-50 rounded-lg p-3"></div>
       </div>
       <div class="flex justify-end gap-2 pt-2 border-t">
@@ -164,89 +160,112 @@
   </div>
 </div>
 
+<!-- Modal 占位库 -->
+<div id="modal-placeholder" class="hidden fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-6 px-4 overflow-y-auto pb-10">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <div>
+        <h2 class="text-lg font-bold text-gray-800">📦 占位资源库</h2>
+        <p class="text-xs text-gray-400 mt-0.5">资源位无绿色资源时，随机从此库取同类型资源占位</p>
+      </div>
+      <button onclick="closeModal('modal-placeholder')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div class="border border-gray-200 rounded-xl p-3 space-y-2">
+        <p class="text-sm font-medium text-gray-700">添加自定义占位资源</p>
+        <div class="flex gap-2 flex-wrap">
+          <input id="ph-name" type="text" placeholder="名称" class="text-sm border rounded-lg px-2 py-1 w-28">
+          <select id="ph-type" class="text-sm border rounded-lg px-2 py-1">
+            <option value="image">🖼 图片</option><option value="audio">🎵 音频</option><option value="video">🎬 视频</option>
+          </select>
+          <input id="ph-url" type="text" placeholder="URL" class="text-sm border rounded-lg px-2 py-1 flex-1 min-w-0">
+          <button onclick="doAddPlaceholder()" class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 whitespace-nowrap">添加</button>
+        </div>
+      </div>
+      <div>
+        <div class="flex gap-2 mb-3" id="ph-tabs"></div>
+        <div id="ph-list" class="space-y-2 max-h-80 overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm text-white shadow-lg bg-gray-800"></div>
 
 <script>
-let currentSlotId = null;
+var currentSlotId = null;
+var currentSlotName = null;
+var currentPhTab = "image";
 
 function toast(msg, color) {
   color = color || "bg-gray-800";
-  const el = document.getElementById("toast");
+  var el = document.getElementById("toast");
   el.className = "fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm text-white shadow-lg " + color;
   el.textContent = msg;
   el.classList.remove("hidden");
   clearTimeout(window._tt);
   window._tt = setTimeout(function(){ el.classList.add("hidden"); }, 3000);
 }
-
 function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
 function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
-
-function typeIcon(t) {
-  return { image:"🖼", audio:"🎵", video:"🎬" }[t] || "📁";
-}
+function typeIcon(t) { return {image:"🖼",audio:"🎵",video:"🎬"}[t]||"📁"; }
 
 async function loadStats() {
-  const res = await fetch("/api/stats");
-  const d = await res.json();
+  var res = await fetch("/api/stats");
+  var d = await res.json();
   document.getElementById("st-slots").textContent    = d.total_slots;
   document.getElementById("st-active").textContent   = d.active;
   document.getElementById("st-inactive").textContent = d.inactive;
   document.getElementById("st-pending").textContent  = d.pending_delete;
+  document.getElementById("st-ph").textContent       = d.placeholders;
 }
 
 async function loadSlots() {
-  const type = document.getElementById("filter-type").value;
-  const cat  = document.getElementById("filter-cat").value;
-  let url = "/api/slots?";
+  var type = document.getElementById("filter-type").value;
+  var cat  = document.getElementById("filter-cat").value;
+  var url  = "/api/slots?";
   if (type) url += "asset_type=" + type + "&";
   if (cat)  url += "category=" + encodeURIComponent(cat) + "&";
-  const res = await fetch(url);
-  const slots = await res.json();
-  const list  = document.getElementById("slot-list");
-  const empty = document.getElementById("empty-tip");
-
-  if (!slots.length) {
-    list.innerHTML = "";
-    empty.classList.remove("hidden");
-    loadStats();
-    return;
-  }
+  var res   = await fetch(url);
+  var slots = await res.json();
+  var list  = document.getElementById("slot-list");
+  var empty = document.getElementById("empty-tip");
+  if (!slots.length) { list.innerHTML = ""; empty.classList.remove("hidden"); loadStats(); return; }
   empty.classList.add("hidden");
 
   list.innerHTML = slots.map(function(s) {
-    const active = s.active_resource;
-    const statusKey = active ? active.status : "empty";
-    const dot = { active:"bg-green-400", inactive:"bg-yellow-400", pending_delete:"bg-red-400", empty:"bg-gray-300" }[statusKey] || "bg-gray-300";
-    const statusText = { active:"正在使用", inactive:"未使用", pending_delete:"待删除", empty:"无资源" }[statusKey] || "";
-    const badgeCls = {
-      active: "bg-green-100 text-green-700",
-      inactive: "bg-yellow-100 text-yellow-700",
-      pending_delete: "bg-red-100 text-red-700",
-      empty: "bg-gray-100 text-gray-500"
-    }[statusKey] || "bg-gray-100 text-gray-500";
+    var active = s.active_resource;
+    var sk = active ? active.status : "empty";
+    var dot = {active:"bg-green-400",inactive:"bg-yellow-400",pending_delete:"bg-red-400",empty:"bg-gray-300"}[sk]||"bg-gray-300";
+    var stText = {active:"正在使用",inactive:"未使用",pending_delete:"待删除",empty:"无资源"}[sk]||"";
+    var badgeCls = {active:"bg-green-100 text-green-700",inactive:"bg-yellow-100 text-yellow-700",pending_delete:"bg-red-100 text-red-700",empty:"bg-gray-100 text-gray-500"}[sk]||"bg-gray-100 text-gray-500";
 
     var previewHtml = "";
-    if (active && !active.source_url && active.filename) {
-      if (s.asset_type === "image") {
-        previewHtml = '<img src="/uploads/' + s.id + '/' + active.filename + '" class="w-full h-28 object-cover rounded-lg mb-2" onerror="this.style.display=\'none\'">';
-      } else if (s.asset_type === "audio") {
-        previewHtml = '<audio controls class="w-full mb-2" style="height:32px"><source src="/uploads/' + s.id + '/' + active.filename + '"></audio>';
+    if (active) {
+      var src = active.source_url || (active.filename ? "/uploads/"+s.id+"/"+active.filename : "");
+      if (src) {
+        if (s.asset_type === "image") {
+          previewHtml = '<img src="'+src+'" class="w-full h-28 object-cover rounded-lg mb-2" onerror="this.style.display=\'none\'">';
+        } else if (s.asset_type === "audio") {
+          previewHtml = '<div class="mb-2 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-2 flex items-center gap-2">'
+            + '<span class="text-2xl">🎵</span>'
+            + '<audio controls class="flex-1" style="height:32px"><source src="'+src+'"></audio></div>';
+        }
       }
     }
 
-    return '<div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition cursor-pointer" onclick="openSlotDetail(\'' + s.id + '\')">'
+    return '<div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition cursor-pointer" onclick="openSlotDetail(\''+s.id+'\')">'
       + previewHtml
       + '<div class="flex items-start justify-between gap-2">'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-center gap-1.5 mb-1"><span class="w-2 h-2 rounded-full flex-shrink-0 ' + dot + '"></span><span class="text-xs text-gray-400 font-mono truncate">' + s.game_key + '</span></div>'
-      + '<p class="font-semibold text-gray-800 text-sm truncate">' + s.name + '</p>'
-      + '<p class="text-xs text-gray-400 mt-0.5">' + typeIcon(s.asset_type) + ' ' + s.asset_type + ' · ' + s.category + '</p>'
+      + '<div class="flex items-center gap-1.5 mb-1"><span class="w-2 h-2 rounded-full flex-shrink-0 '+dot+'"></span><span class="text-xs text-gray-400 font-mono truncate">'+s.game_key+'</span></div>'
+      + '<p class="font-semibold text-gray-800 text-sm truncate">'+s.name+'</p>'
+      + '<p class="text-xs text-gray-400 mt-0.5">'+typeIcon(s.asset_type)+' '+s.asset_type+' · '+s.category+'</p>'
       + '</div>'
       + '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
-      + '<span class="text-xs px-1.5 py-0.5 rounded ' + badgeCls + '">' + statusText + '</span>'
-      + '<span class="text-xs text-gray-400">' + s.resource_count + ' 个资源</span>'
+      + '<span class="text-xs px-1.5 py-0.5 rounded '+badgeCls+'">'+stText+'</span>'
+      + '<span class="text-xs text-gray-400">'+s.resource_count+' 个资源</span>'
       + '</div></div></div>';
   }).join("");
   loadStats();
@@ -254,188 +273,247 @@ async function loadSlots() {
 
 async function openSlotDetail(slotId) {
   currentSlotId = slotId;
-  const res = await fetch("/api/slots/" + slotId);
-  const s = await res.json();
+  var res = await fetch("/api/slots/" + slotId);
+  var s = await res.json();
+  currentSlotName = s.name;
   document.getElementById("modal-slot-title").textContent  = s.name;
   document.getElementById("modal-game-key").textContent    = s.game_key;
-  document.getElementById("modal-asset-type").textContent  = typeIcon(s.asset_type) + " " + s.asset_type;
+  document.getElementById("modal-asset-type").textContent  = typeIcon(s.asset_type)+" "+s.asset_type;
   document.getElementById("modal-category").textContent    = s.category;
-  document.getElementById("modal-description").textContent = s.description || "";
+  document.getElementById("modal-description").textContent = s.description||"";
   document.getElementById("upload-file").value   = "";
   document.getElementById("upload-note").value   = "";
   document.getElementById("add-url-input").value = "";
-  renderResources(s.resources || [], slotId, s.asset_type);
+  renderResources(s.resources||[], slotId, s.asset_type);
   openModal("modal-slot");
 }
 
 function renderResources(resources, slotId, assetType) {
-  const list  = document.getElementById("resource-list");
-  const empty = document.getElementById("resource-empty");
-  if (!resources.length) {
-    list.innerHTML = "";
-    empty.classList.remove("hidden");
-    return;
-  }
+  var list  = document.getElementById("resource-list");
+  var empty = document.getElementById("resource-empty");
+  if (!resources.length) { list.innerHTML = ""; empty.classList.remove("hidden"); return; }
   empty.classList.add("hidden");
-  list.innerHTML = resources.map(function(r) {
-    const isUrl = !!r.source_url;
-    const fileUrl = isUrl ? r.source_url : "/uploads/" + slotId + "/" + r.filename;
-    var preview = '<span class="text-xl flex-shrink-0">📁</span>';
-    if (assetType === "image" && !isUrl) {
-      preview = '<img src="' + fileUrl + '" class="w-10 h-10 object-cover rounded flex-shrink-0" onerror="this.style.display=\'none\'">';
-    } else if (assetType === "audio") {
-      preview = '<span class="text-xl flex-shrink-0">🎵</span>';
-    }
-    const borderCls = r.status === "active" ? "border-green-200 bg-green-50"
-      : r.status === "pending_delete" ? "border-red-200 bg-red-50"
-      : "border-gray-200 bg-white";
-    const selCls = r.status === "active" ? "border-green-300 text-green-700"
-      : r.status === "pending_delete" ? "border-red-300 text-red-700"
-      : "border-yellow-300 text-yellow-700";
-    const urlLine = isUrl ? '<a href="' + r.source_url + '" target="_blank" class="text-xs text-blue-500 underline truncate block">URL资源↗</a>' : "";
-    const noteLine = r.note ? '<p class="text-xs text-gray-500 italic">' + r.note + '</p>' : "";
 
-    return '<div class="flex items-center gap-3 p-2 rounded-lg border ' + borderCls + '">'
-      + preview
+  list.innerHTML = resources.map(function(r) {
+    var isUrl   = !!r.source_url;
+    var src     = isUrl ? r.source_url : "/uploads/"+slotId+"/"+r.filename;
+    var borderCls = r.status==="active" ? "border-green-200 bg-green-50" : r.status==="pending_delete" ? "border-red-200 bg-red-50" : "border-gray-200 bg-white";
+    var selCls    = r.status==="active" ? "border-green-300 text-green-700" : r.status==="pending_delete" ? "border-red-300 text-red-700" : "border-yellow-300 text-yellow-700";
+
+    var previewHtml = "";
+    if (assetType === "image") {
+      previewHtml = '<img src="'+src+'" class="w-14 h-14 object-cover rounded-lg flex-shrink-0" onerror="this.style.display=\'none\'">';
+    } else if (assetType === "audio") {
+      previewHtml = '<div class="flex-shrink-0 flex flex-col items-center gap-1">'
+        + '<span class="text-2xl">🎵</span>'
+        + '<audio controls style="width:160px;height:28px"><source src="'+src+'"></audio>'
+        + '</div>';
+    } else {
+      previewHtml = '<span class="text-2xl flex-shrink-0">📁</span>';
+    }
+
+    var urlLine  = isUrl ? '<a href="'+r.source_url+'" target="_blank" class="text-xs text-blue-500 underline truncate block max-w-xs">链接↗</a>' : "";
+    var noteLine = r.note ? '<p class="text-xs text-gray-500 italic">'+r.note+'</p>' : "";
+
+    return '<div class="flex items-center gap-3 p-3 rounded-xl border '+borderCls+'">'
+      + previewHtml
       + '<div class="flex-1 min-w-0">'
-      + '<p class="text-xs font-medium text-gray-700 truncate">' + r.original_name + '</p>'
-      + '<p class="text-xs text-gray-400">' + (r.uploaded_by === "ai" ? "🤖 AI添加" : "👤 用户上传") + ' · ' + r.uploaded_at.slice(0,10) + '</p>'
+      + '<p class="text-xs font-semibold text-gray-700 truncate">'+r.original_name+'</p>'
+      + '<p class="text-xs text-gray-400">'+(r.uploaded_by==="ai"?"🤖 AI":"👤 用户")+' · '+r.uploaded_at.slice(0,10)+'</p>'
       + noteLine + urlLine
       + '</div>'
-      + '<div class="flex items-center gap-1.5 flex-shrink-0">'
-      + '<select onchange="setResourceStatus(\'' + r.id + '\', this.value)" class="text-xs border rounded px-1.5 py-1 ' + selCls + '">'
-      + '<option value="active"' + (r.status==="active"?" selected":"") + '>● 正在使用</option>'
-      + '<option value="inactive"' + (r.status==="inactive"?" selected":"") + '>● 未使用</option>'
-      + '<option value="pending_delete"' + (r.status==="pending_delete"?" selected":"") + '>● 待删除</option>'
+      + '<div class="flex flex-col items-end gap-1.5 flex-shrink-0">'
+      + '<select onchange="setResourceStatus(\''+r.id+'\', this.value)" class="text-xs border rounded px-1.5 py-1 '+selCls+'">'
+      + '<option value="active"'+(r.status==="active"?" selected":"")+'>● 使用中</option>'
+      + '<option value="inactive"'+(r.status==="inactive"?" selected":"")+'>● 未使用</option>'
+      + '<option value="pending_delete"'+(r.status==="pending_delete"?" selected":"")+'>● 待删除</option>'
       + '</select>'
-      + '<button onclick="deleteResource(\'' + r.id + '\')" class="text-gray-300 hover:text-red-500 text-xl leading-none" title="立即删除">×</button>'
+      + '<button onclick="deleteResource(\''+r.id+'\')" class="text-xs text-gray-400 hover:text-red-500">立即删除</button>'
       + '</div></div>';
   }).join("");
 }
 
+async function doDeleteSlot() {
+  if (!confirm("确认删除资源位「"+currentSlotName+"」？\n该资源位下所有资源将一并删除，不可恢复。")) return;
+  var res = await fetch("/api/slots/"+currentSlotId, {method:"DELETE"});
+  if (!res.ok) { toast("删除失败","bg-red-500"); return; }
+  toast("资源位已删除","bg-gray-700");
+  closeModal("modal-slot"); loadSlots();
+}
+
 async function doUpload() {
-  const file = document.getElementById("upload-file").files[0];
-  if (!file) { toast("请选择文件", "bg-red-500"); return; }
-  const fd = new FormData();
+  var file = document.getElementById("upload-file").files[0];
+  if (!file) { toast("请选择文件","bg-red-500"); return; }
+  var fd = new FormData();
   fd.append("file", file);
-  fd.append("uploaded_by", "user");
+  fd.append("uploaded_by","user");
   fd.append("note", document.getElementById("upload-note").value);
-  const res = await fetch("/api/slots/" + currentSlotId + "/upload", { method:"POST", body:fd });
-  const d = await res.json();
-  if (!res.ok) { toast(d.error || "上传失败", "bg-red-500"); return; }
-  toast("上传成功（已设为未使用）", "bg-green-600");
-  openSlotDetail(currentSlotId);
-  loadSlots();
+  var res = await fetch("/api/slots/"+currentSlotId+"/upload",{method:"POST",body:fd});
+  var d = await res.json();
+  if (!res.ok) { toast(d.error||"上传失败","bg-red-500"); return; }
+  toast("上传成功（未使用状态）","bg-green-600");
+  openSlotDetail(currentSlotId); loadSlots();
 }
 
 async function doAddUrl() {
-  const url = document.getElementById("add-url-input").value.trim();
-  if (!url) { toast("请输入URL", "bg-red-500"); return; }
-  const res = await fetch("/api/slots/" + currentSlotId + "/add-url", {
-    method: "POST", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ source_url: url, uploaded_by: "user" })
+  var url = document.getElementById("add-url-input").value.trim();
+  if (!url) { toast("请输入URL","bg-red-500"); return; }
+  var res = await fetch("/api/slots/"+currentSlotId+"/add-url",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({source_url:url,uploaded_by:"user"})
   });
-  const d = await res.json();
-  if (!res.ok) { toast(d.error || "添加失败", "bg-red-500"); return; }
-  toast("URL资源已添加", "bg-green-600");
-  openSlotDetail(currentSlotId);
-  loadSlots();
+  var d = await res.json();
+  if (!res.ok) { toast(d.error||"添加失败","bg-red-500"); return; }
+  toast("URL资源已添加","bg-green-600");
+  openSlotDetail(currentSlotId); loadSlots();
 }
 
 async function setResourceStatus(rid, status) {
-  const res = await fetch("/api/resources/" + rid + "/status", {
-    method: "PUT", headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ status: status })
+  var res = await fetch("/api/resources/"+rid+"/status",{
+    method:"PUT",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({status:status})
   });
-  if (!res.ok) { toast("操作失败", "bg-red-500"); return; }
-  const label = { active:"正在使用 ✅", inactive:"未使用 ⚠️", pending_delete:"待删除 🗑️" }[status] || status;
-  toast("已设为：" + label);
-  openSlotDetail(currentSlotId);
-  loadSlots();
+  if (!res.ok) { toast("操作失败","bg-red-500"); return; }
+  var label = {active:"正在使用 ✅",inactive:"未使用 ⚠️",pending_delete:"待删除 🗑️"}[status]||status;
+  toast("已设为："+label);
+  openSlotDetail(currentSlotId); loadSlots();
 }
 
 async function deleteResource(rid) {
-  if (!confirm("确认立即删除这个资源？此操作不可恢复。")) return;
-  const res = await fetch("/api/resources/" + rid, { method:"DELETE" });
-  if (!res.ok) { toast("删除失败", "bg-red-500"); return; }
+  if (!confirm("确认立即删除？不可恢复。")) return;
+  var res = await fetch("/api/resources/"+rid,{method:"DELETE"});
+  if (!res.ok) { toast("删除失败","bg-red-500"); return; }
   toast("已删除");
-  openSlotDetail(currentSlotId);
-  loadSlots();
+  openSlotDetail(currentSlotId); loadSlots();
 }
 
 function openCreateSlot() {
-  ["c-game-key","c-name","c-desc","c-meta"].forEach(function(id){ document.getElementById(id).value = ""; });
+  ["c-game-key","c-name","c-desc","c-meta"].forEach(function(id){document.getElementById(id).value="";});
   openModal("modal-create");
 }
 
 async function doCreateSlot() {
-  const gameKey = document.getElementById("c-game-key").value.trim();
-  const name    = document.getElementById("c-name").value.trim();
-  if (!gameKey || !name) { toast("game_key 和名称必填", "bg-red-500"); return; }
+  var gameKey = document.getElementById("c-game-key").value.trim();
+  var name    = document.getElementById("c-name").value.trim();
+  if (!gameKey||!name) { toast("game_key 和名称必填","bg-red-500"); return; }
   var meta = {};
-  const metaStr = document.getElementById("c-meta").value.trim();
-  if (metaStr) { try { meta = JSON.parse(metaStr); } catch(e) { toast("Metadata JSON 格式错误", "bg-red-500"); return; } }
-  const res = await fetch("/api/slots", {
-    method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      game_key: gameKey, name: name,
-      description: document.getElementById("c-desc").value.trim(),
-      asset_type: document.getElementById("c-type").value,
-      category: document.getElementById("c-cat").value,
-      metadata: meta, created_by: "user"
-    })
+  var metaStr = document.getElementById("c-meta").value.trim();
+  if (metaStr) { try { meta=JSON.parse(metaStr); } catch(e) { toast("Metadata JSON 格式错误","bg-red-500"); return; } }
+  var res = await fetch("/api/slots",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({game_key:gameKey,name:name,
+      description:document.getElementById("c-desc").value.trim(),      asset_type:document.getElementById("c-type").value,
+      category:document.getElementById("c-cat").value,
+      metadata:meta,created_by:"user"})
   });
-  const d = await res.json();
-  if (!res.ok) { toast(d.error || "创建失败", "bg-red-500"); return; }
-  toast("资源位创建成功", "bg-green-600");
-  closeModal("modal-create");
-  loadSlots();
+  var d = await res.json();
+  if (!res.ok) { toast(d.error||"创建失败","bg-red-500"); return; }
+  toast("资源位创建成功","bg-green-600");
+  closeModal("modal-create"); loadSlots();
 }
 
 async function openSyncPreview() {
-  const res = await fetch("/api/sync/preview");
-  const d = await res.json();
-  const delList = document.getElementById("sync-delete-list");
+  var res = await fetch("/api/sync/preview");
+  var d = await res.json();
+  var delList = document.getElementById("sync-delete-list");
   if (!d.will_delete.length) {
     delList.innerHTML = '<p class="text-gray-400 text-xs">无待删除资源</p>';
   } else {
     delList.innerHTML = d.will_delete.map(function(r){
-      return '<div class="flex items-center gap-2 text-xs py-1 border-b border-red-100">'
-        + '<span class="text-red-500">🗑</span>'
-        + '<span class="text-gray-700">' + r.original_name + '</span>'
-        + '<span class="text-gray-400">slot: ' + r.slot_id.slice(0,8) + '...</span>'
-        + '</div>';
+      return '<div class="flex items-center gap-2 text-xs py-1 border-b border-red-100 last:border-0">'
+        +'<span>🗑</span><span class="text-gray-700 flex-1 truncate">'+r.original_name+'</span>'
+        +'<span class="text-gray-400 font-mono">'+r.game_key+'</span></div>';
     }).join("");
   }
-  const manifest = d.manifest || {};
-  const total = Object.keys(manifest).length;
-  const active = Object.values(manifest).filter(function(v){ return !v.is_placeholder; }).length;
-  const placeholder = total - active;
+  var manifest = d.manifest||{};
+  var total = Object.keys(manifest).length;
+  var active = Object.values(manifest).filter(function(v){return !v.is_placeholder;}).length;
   document.getElementById("sync-manifest-count").innerHTML =
-    '<span class="text-green-700 font-semibold">' + active + ' 个有效资源</span>'
-    + '，<span class="text-gray-400">' + placeholder + ' 个占位资源</span>'
-    + '，共 ' + total + ' 个资源位';
+    '<span class="text-green-700 font-semibold">'+active+' 个有效资源</span>，'
+    +'<span class="text-gray-400">'+(total-active)+' 个占位资源</span>，共 '+total+' 个资源位';
   openModal("modal-sync");
 }
 
 async function doSync() {
-  const res = await fetch("/api/sync", { method:"POST" });
-  const d = await res.json();
-  if (!res.ok) { toast("Sync 失败", "bg-red-500"); return; }
-  toast("Sync 完成！删除 " + d.deleted_count + " 个资源", "bg-green-600");
-  closeModal("modal-sync");
-  loadSlots();
+  var res = await fetch("/api/sync",{method:"POST"});
+  var d = await res.json();
+  if (!res.ok) { toast("Sync 失败","bg-red-500"); return; }
+  toast("Sync 完成！删除 "+d.deleted_count+" 个资源","bg-green-600");
+  closeModal("modal-sync"); loadSlots();
 }
 
-// 关闭 modal 点击外部
+async function openPlaceholderLib() {
+  openModal("modal-placeholder");
+  loadPlaceholders("image");
+}
+
+async function loadPlaceholders(tab) {
+  currentPhTab = tab;
+  var tabs = document.getElementById("ph-tabs");
+  tabs.innerHTML = ["image","audio","video"].map(function(t){
+    var active = t===tab ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200";
+    return '<button onclick="loadPlaceholders(\''+t+'\')" class="px-3 py-1 text-xs rounded-lg '+active+'">'+{image:"🖼 图片",audio:"🎵 音频",video:"🎬 视频"}[t]+'</button>';
+  }).join("");
+
+  var res = await fetch("/api/placeholders?asset_type="+tab);
+  var items = await res.json();
+  var list = document.getElementById("ph-list");
+  if (!items.length) { list.innerHTML = '<p class="text-gray-400 text-sm py-4 text-center">暂无占位资源</p>'; return; }
+
+  list.innerHTML = items.map(function(p) {
+    var previewHtml = "";
+    if (p.asset_type==="image") {
+      previewHtml = '<img src="'+p.url+'" class="w-14 h-14 object-cover rounded-lg flex-shrink-0" onerror="this.style.display=\'none\'">';
+    } else if (p.asset_type==="audio") {
+      previewHtml = '<div class="flex-shrink-0"><audio controls style="width:140px;height:28px"><source src="'+p.url+'"></audio></div>';
+    } else {
+      previewHtml = '<span class="text-2xl flex-shrink-0">🎬</span>';
+    }
+    var builtinBadge = p.is_builtin ? '<span class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">内置</span>' : '';
+    var deleteBtn = !p.is_builtin ? '<button onclick="deletePlaceholder(\''+p.id+'\')" class="text-xs text-red-400 hover:text-red-600">删除</button>' : '';
+    return '<div class="flex items-center gap-3 p-2 rounded-lg border border-gray-100 bg-gray-50">'
+      +previewHtml
+      +'<div class="flex-1 min-w-0">'
+      +'<p class="text-sm font-medium text-gray-700">'+p.name+' '+builtinBadge+'</p>'
+      +'<a href="'+p.url+'" target="_blank" class="text-xs text-blue-400 underline truncate block">'+p.url.slice(0,60)+'...'+'</a>'
+      +'</div>'
+      +deleteBtn
+      +'</div>';
+  }).join("");
+}
+
+async function doAddPlaceholder() {
+  var url  = document.getElementById("ph-url").value.trim();
+  var name = document.getElementById("ph-name").value.trim()||"自定义占位";
+  var type = document.getElementById("ph-type").value;
+  if (!url) { toast("请输入URL","bg-red-500"); return; }
+  var res = await fetch("/api/placeholders",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:name,asset_type:type,url:url})
+  });
+  var d = await res.json();
+  if (!res.ok) { toast(d.error||"添加失败","bg-red-500"); return; }
+  toast("占位资源已添加","bg-green-600");
+  document.getElementById("ph-url").value="";
+  document.getElementById("ph-name").value="";
+  loadPlaceholders(type); loadStats();
+}
+
+async function deletePlaceholder(pid) {
+  if (!confirm("确认删除此占位资源？")) return;
+  var res = await fetch("/api/placeholders/"+pid,{method:"DELETE"});
+  var d = await res.json();
+  if (!res.ok) { toast(d.error||"删除失败","bg-red-500"); return; }
+  toast("已删除");
+  loadPlaceholders(currentPhTab); loadStats();
+}
+
 document.addEventListener("click", function(e) {
-  ["modal-slot","modal-create","modal-sync"].forEach(function(id) {
-    const el = document.getElementById(id);
-    if (e.target === el) closeModal(id);
+  ["modal-slot","modal-create","modal-sync","modal-placeholder"].forEach(function(id){
+    if (e.target===document.getElementById(id)) closeModal(id);
   });
 });
 
-// 初始化
 loadSlots();
 </script>
 </body>
