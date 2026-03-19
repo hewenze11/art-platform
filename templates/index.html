@@ -68,6 +68,21 @@
     </div>
     <div class="px-6 py-4 space-y-4">
       <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-2">
+        <!-- 占位资源选择 -->
+        <div class="border border-indigo-100 bg-indigo-50 rounded-xl p-3 space-y-2">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-medium text-indigo-700">🖼 占位资源 <span class="text-xs font-normal text-indigo-400">（无真实资源时显示）</span></p>
+            <button onclick="clearSlotPlaceholder()" class="text-xs text-gray-400 hover:text-red-400">恢复文字占位</button>
+          </div>
+          <div id="current-placeholder" class="flex items-center gap-2 text-xs text-gray-500"></div>
+          <div class="flex gap-2">
+            <select id="ph-select" class="text-sm border rounded-lg px-2 py-1 flex-1 bg-white">
+              <option value="">-- 从占位库选择 --</option>
+            </select>
+            <button onclick="applySlotPlaceholder()" class="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 whitespace-nowrap">指定</button>
+          </div>
+        </div>
+
         <p class="text-sm font-medium text-gray-700">添加资源 <span class="text-xs text-gray-400 font-normal">添加后默认黄色（未使用），需手动激活</span></p>
         <div class="flex gap-2 flex-wrap">
           <input type="file" id="upload-file" class="text-sm text-gray-600 flex-1 min-w-0 border rounded px-2 py-1">
@@ -211,6 +226,51 @@ function openModal(id) { document.getElementById(id).classList.remove("hidden");
 function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
 function typeIcon(t) { return {image:"🖼",audio:"🎵",video:"🎬"}[t]||"📁"; }
 
+function loadSlotPlaceholderUI(slot) {
+  var el = document.getElementById("current-placeholder");
+  var svgUrl = "/api/slots/" + slot.id + "/placeholder.svg";
+  if (slot.placeholder_id && slot.placeholder_name) {
+    el.innerHTML = '<span class="text-indigo-600 font-medium">📦 已指定：' + slot.placeholder_name + '</span>'
+      + '<button onclick="clearSlotPlaceholder()" class="ml-1 text-gray-400 hover:text-red-400 text-xs">×</button>';
+  } else {
+    el.innerHTML = '<img src="' + svgUrl + '" class="w-8 h-8 rounded">'
+      + '<span class="text-gray-500">当前：文字占位图（自动生成）</span>';
+  }
+}
+
+async function loadPlaceholderSelect(assetType, currentPhId) {
+  var res = await fetch("/api/placeholders?asset_type=" + assetType);
+  var items = await res.json();
+  var sel = document.getElementById("ph-select");
+  sel.innerHTML = '<option value="">-- 从占位库选择 --</option>'
+    + items.map(function(p) {
+        var sel2 = p.id === currentPhId ? " selected" : "";
+        return '<option value="' + p.id + '"' + sel2 + '>' + p.name + (p.is_builtin?" (内置)":"") + '</option>';
+      }).join("");
+}
+
+async function applySlotPlaceholder() {
+  var pid = document.getElementById("ph-select").value;
+  if (!pid) { toast("请先选择一个占位资源", "bg-yellow-500"); return; }
+  var res = await fetch("/api/slots/" + currentSlotId + "/set-placeholder", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({placeholder_id: pid})
+  });
+  if (!res.ok) { toast("设置失败","bg-red-500"); return; }
+  toast("占位资源已指定", "bg-indigo-600");
+  openSlotDetail(currentSlotId); loadSlots();
+}
+
+async function clearSlotPlaceholder() {
+  var res = await fetch("/api/slots/" + currentSlotId + "/set-placeholder", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({placeholder_id: null})
+  });
+  if (!res.ok) { toast("操作失败","bg-red-500"); return; }
+  toast("已恢复文字占位");
+  openSlotDetail(currentSlotId); loadSlots();
+}
+
 async function loadStats() {
   var res = await fetch("/api/stats");
   var d = await res.json();
@@ -284,6 +344,12 @@ async function openSlotDetail(slotId) {
   document.getElementById("upload-file").value   = "";
   document.getElementById("upload-note").value   = "";
   document.getElementById("add-url-input").value = "";
+
+  // 加载占位状态
+  loadSlotPlaceholderUI(s);
+  // 加载占位库下拉
+  loadPlaceholderSelect(s.asset_type, s.placeholder_id);
+
   renderResources(s.resources||[], slotId, s.asset_type);
   openModal("modal-slot");
 }

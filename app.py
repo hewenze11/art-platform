@@ -7,9 +7,9 @@ Art Platform - 美术资源管理平台
   - PlaceholderResource（占位资源库）: 当资源位无 active 时随机返回同类型占位资源
   - Manifest: 游戏读取接口
 """
-import os, json, uuid, mimetypes
+import os, json, uuid, mimetypes, html
 from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_from_directory, send_file, Response
 from flask_cors import CORS
 import sqlite3
 
@@ -57,6 +57,7 @@ def init_db():
             name TEXT NOT NULL, description TEXT DEFAULT '',
             asset_type TEXT DEFAULT 'image', category TEXT DEFAULT '其他',
             metadata TEXT DEFAULT '{}', created_by TEXT DEFAULT 'user',
+            placeholder_id TEXT DEFAULT NULL,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS art_resources (
@@ -90,6 +91,17 @@ def get_placeholder_url(conn, asset_type):
     fallback = {"image": BUILTIN_PLACEHOLDERS[0]["url"], "audio": BUILTIN_PLACEHOLDERS[4]["url"], "video": BUILTIN_PLACEHOLDERS[7]["url"]}
     return fallback.get(asset_type, "")
 
+def get_slot_placeholder_url(conn, slot):
+    """占位优先级：手动指定占位库 > 文字SVG占位"""
+    pid = slot.get("placeholder_id")
+    if pid:
+        row = conn.execute("SELECT url FROM placeholder_resources WHERE id=?", (pid,)).fetchone()
+        if row:
+            return row["url"], False
+    # 文字SVG占位（动态生成）
+    host = request.host_url.rstrip("/")
+    return f"{host}/api/slots/{slot['id']}/placeholder.svg", False
+
 def slot_to_dict(row, conn, include_resources=False):
     d = dict(row)
     try: d["metadata"] = json.loads(d.get("metadata") or "{}")
@@ -112,6 +124,54 @@ def index(): return send_file("templates/index.html")
 @app.route("/uploads/<slot_id>/<filename>")
 def serve_file(slot_id, filename):
     return send_from_directory(os.path.join(UPLOAD_DIR, slot_id), filename)
+
+# ── 文字占位 SVG ──────────────────────────────────────────
+
+def make_text_placeholder_svg(name, asset_type="image"):
+    """动态生成文字占位 SVG，无需任何图像库"""
+    color_map = {
+        "image": ("#6366f1", "#e0e7ff"),
+        "audio": ("#8b5cf6", "#ede9fe"),
+        "video": ("#ec4899", "#fce7f3"),
+    }
+    stroke, bg = color_map.get(asset_type, ("#6366f1", "#e0e7ff"))
+    safe_name = html.escape(name[:8])  # 最多8字，防止溢出
+    # 多行处理：超4字换行
+    if len(name) > 4:
+        line1 = html.escape(name[:4])
+        line2 = html.escape(name[4:8])
+        text_el = (
+            f'<text x="100" y="95" text-anchor="middle" '
+            f'font-family="PingFang SC,Microsoft YaHei,sans-serif" '
+            f'font-size="22" fill="{stroke}" font-weight="bold">{line1}</text>'
+            f'<text x="100" y="122" text-anchor="middle" '
+            f'font-family="PingFang SC,Microsoft YaHei,sans-serif" '
+            f'font-size="22" fill="{stroke}" font-weight="bold">{line2}</text>'
+        )
+    else:
+        text_el = (
+            f'<text x="100" y="110" text-anchor="middle" '
+            f'font-family="PingFang SC,Microsoft YaHei,sans-serif" '
+            f'font-size="24" fill="{stroke}" font-weight="bold">{safe_name}</text>'
+        )
+    svg = f'''<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <circle cx="100" cy="100" r="90" fill="{bg}" stroke="{stroke}" stroke-width="3"/>
+  <circle cx="100" cy="100" r="82" fill="none" stroke="{stroke}" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>
+  {text_el}
+  <text x="100" y="158" text-anchor="middle" font-family="sans-serif" font-size="10" fill="{stroke}" opacity="0.5">占位资源</text>
+</svg>'''
+    return svg
+
+@app.route("/api/slots/<sid>/placeholder.svg")
+def slot_text_placeholder(sid):
+    with get_db() as conn:
+        row = conn.execute("SELECT name, asset_type FROM art_slots WHERE id=?", (sid,)).fetchone()
+        if not row:
+            return "not found", 404
+    svg = make_text_placeholder_svg(row["name"], row["asset_type"])
+    return Response(svg, mimetype="image/svg+xml",
+                    headers={"Cache-Control": "public, max-age=3600"})
 
 # ── 资源位 ────────────────────────────────────────────────
 @app.route("/api/slots", methods=["GET"])
@@ -168,9 +228,27 @@ def update_slot(sid):
             meta = data["metadata"]
             if isinstance(meta, dict): meta = json.dumps(meta, ensure_ascii=False)
             sets.append("metadata=?"); params.append(meta)
+        if "placeholder_id" in data:
+            # None 表示清除，字符串表示指定
+            sets.append("placeholder_id=?"); params.append(data["placeholder_id"])
         if not sets: return jsonify({"error": "无可更新字段"}), 400
         sets.append("updated_at=?"); params.append(now_iso()); params.append(sid)
         conn.execute(f"UPDATE art_slots SET {', '.join(sets)} WHERE id=?", params)
+    return jsonify({"ok": True})
+
+@app.route("/api/slots/<sid>/set-placeholder", methods=["POST"])
+def set_slot_placeholder(sid):
+    """为资源位手动指定占位资源（来自占位库）"""
+    data = request.get_json() or {}
+    placeholder_id = data.get("placeholder_id")  # None = 恢复文字SVG
+    with get_db() as conn:
+        if not conn.execute("SELECT id FROM art_slots WHERE id=?", (sid,)).fetchone():
+            return jsonify({"error": "not found"}), 404
+        if placeholder_id:
+            if not conn.execute("SELECT id FROM placeholder_resources WHERE id=?", (placeholder_id,)).fetchone():
+                return jsonify({"error": "占位资源不存在"}), 404
+        conn.execute("UPDATE art_slots SET placeholder_id=?, updated_at=? WHERE id=?",
+                     (placeholder_id, now_iso(), sid))
     return jsonify({"ok": True})
 
 @app.route("/api/slots/<sid>", methods=["DELETE"])
@@ -318,9 +396,11 @@ def build_manifest(conn):
                             "resource_id": a["id"], "original_name": a["original_name"],
                             "metadata": json.loads(s.get("metadata") or "{}")}
         else:
+            ph_url, _ = get_slot_placeholder_url(conn, s)
             manifest[gk] = {"game_key": gk, "slot_name": s["name"], "asset_type": s["asset_type"],
-                            "category": s["category"], "url": get_placeholder_url(conn, s["asset_type"]),
+                            "category": s["category"], "url": ph_url,
                             "is_placeholder": True, "resource_id": None, "original_name": None,
+                            "placeholder_type": "assigned" if s.get("placeholder_id") else "text_svg",
                             "metadata": json.loads(s.get("metadata") or "{}")}
     return manifest
 
