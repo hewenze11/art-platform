@@ -1,718 +1,442 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>ArtHub</title>
-<style>
-
-:root{--bg:#0f1117;--bg2:#1a1d27;--bg3:#242838;--bg4:#2e3347;--border:#2d3148;--accent:#5b6af0;--ah:#7280ff;--danger:#e05252;--success:#4caf82;--warn:#e0a040;--text:#e2e4f0;--t2:#8890b0;--t3:#5a6080;--r:8px;}
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
-/* topbar */
-.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;z-index:200;}
-.logo{font-size:16px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px;}
-.topbar-r{display:flex;align-items:center;gap:10px;}
-/* version selector */
-.ver-wrap{position:relative;}
-.ver-sel{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 34px 6px 12px;font-size:13px;color:var(--text);cursor:pointer;appearance:none;min-width:160px;font-family:inherit;}
-.ver-sel:focus{outline:none;border-color:var(--accent);}
-.ver-arrow{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--t3);font-size:11px;}
-.cur-badge{background:rgba(76,175,130,.18);color:var(--success);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;}
-/* nav tabs */
-.nav-tabs{display:flex;gap:4px;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);}
-.tab{padding:9px 16px;font-size:13px;cursor:pointer;color:var(--t2);border-bottom:2px solid transparent;transition:all .15s;background:none;border-top:none;border-left:none;border-right:none;}
-.tab:hover{color:var(--text);}
-.tab.on{color:var(--accent);border-bottom-color:var(--accent);}
-/* content */
-.content{flex:1;overflow-y:auto;padding:20px;}
-/* category section */
-.cat-sec{margin-bottom:28px;}
-.cat-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.cat-title{font-size:13px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;}
-.cat-count{font-size:11px;color:var(--t3);background:var(--bg3);padding:2px 8px;border-radius:20px;}
-/* asset grid */
-.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;}
-/* asset card */
-.acard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:border-color .15s;position:relative;}
-.acard:hover{border-color:var(--accent);}
-.acard.confirmed{border-color:rgba(76,175,130,.4);}
-.acard.pending{border-color:rgba(224,160,64,.3);opacity:.75;}
-.acard.empty{border-color:var(--border);}
-.acard-thumb{width:100%;aspect-ratio:4/3;background:var(--bg3);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
-.acard-thumb img{width:100%;height:100%;object-fit:cover;}
-.acard-thumb audio{display:none;}
-.placeholder-img{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
-.placeholder-audio{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--t3);}
-.placeholder-file{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--t3);font-size:12px;}
-.acard-info{padding:8px 10px;}
-.acard-name{font-size:12px;font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.acard-status{display:flex;align-items:center;gap:5px;}
-.sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.sdot-c{background:var(--success);}.sdot-p{background:var(--warn);}.sdot-e{background:var(--t3);}
-.slab{font-size:10px;color:var(--t3);}
-.acard-menu{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);border:none;border-radius:5px;color:#fff;cursor:pointer;font-size:12px;padding:3px 6px;opacity:0;transition:opacity .15s;}
-.acard:hover .acard-menu{opacity:1;}
-/* pending indicator overlay */
-.pending-badge{position:absolute;top:6px;left:6px;background:rgba(224,160,64,.85);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:10px;}
-/* add card */
-.acard-add{background:transparent;border:1px dashed var(--border);border-radius:var(--r);aspect-ratio:4/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;transition:all .15s;color:var(--t3);font-size:12px;}
-.acard-add:hover{border-color:var(--accent);color:var(--accent);}
-/* empty state */
-.empty-state{text-align:center;padding:60px 20px;color:var(--t3);}
-.empty-state p{font-size:14px;margin-bottom:16px;}
-/* pending library */
-.pending-lib{padding:20px;}
-.pl-intro{font-size:13px;color:var(--t2);margin-bottom:16px;padding:10px 14px;background:rgba(224,160,64,.08);border:1px solid rgba(224,160,64,.2);border-radius:var(--r);}
-/* buttons */
-.btn{padding:7px 14px;border-radius:6px;border:none;font-size:13px;cursor:pointer;font-weight:500;transition:all .15s;}
-.bp{background:var(--accent);color:#fff;}.bp:hover{background:var(--ah);}
-.bg{background:transparent;color:var(--t2);border:1px solid var(--border);}.bg:hover{background:var(--bg3);}
-.bd{background:var(--danger);color:#fff;}
-.bs{background:var(--success);color:#fff;}
-/* modals */
-.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center;}
-.ov.open{display:flex;}
-.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;width:480px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.5);}
-.mlg{width:660px;}.msm{width:380px;}
-.mh{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
-.mh h3{font-size:15px;font-weight:600;}
-.mcl{background:none;border:none;color:var(--t2);font-size:18px;cursor:pointer;line-height:1;}
-.mb{padding:16px 20px;}
-.mf{padding:10px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
-.fg{margin-bottom:12px;}
-.fg label{display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500;}
-.fg input,.fg textarea,.fg select{width:100%;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;}
-.fg input:focus,.fg textarea:focus,.fg select:focus{outline:none;border-color:var(--accent);}
-.fg textarea{resize:vertical;min-height:60px;}
-.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-/* detail modal */
-.det-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-.det-preview{background:var(--bg3);border-radius:var(--r);overflow:hidden;aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;}
-.det-preview img{max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in;}
-.det-preview audio{width:100%;}
-.kv{font-size:13px;}
-.kv-row{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);}
-.kv-row:last-child{border-bottom:none;}
-.kv-k{color:var(--t3);min-width:55px;flex-shrink:0;}
-.kv-v{color:var(--text);flex:1;}
-/* file history */
-.fhist{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
-.fhist-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;}
-.fhist-item:hover{border-color:var(--accent);}
-.fhist-item.active-f{border-color:var(--success);color:var(--success);}
-/* notes */
-.note-item{background:var(--bg3);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:13px;color:var(--t2);display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
-.note-del{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;flex-shrink:0;}
-.note-del:hover{color:var(--danger);}
-.note-inp{display:flex;gap:8px;margin-top:8px;}
-.note-inp input{flex:1;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;font-family:inherit;}
-.note-inp input:focus{outline:none;border-color:var(--accent);}
-/* status buttons */
-.st-btns{display:flex;gap:6px;margin-top:6px;}
-.st-btn{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:all .15s;}
-.st-c{background:rgba(76,175,130,.15);color:var(--success);border-color:rgba(76,175,130,.3);}
-.st-c.on,.st-c:hover{background:rgba(76,175,130,.3);}
-.st-p{background:rgba(224,160,64,.15);color:var(--warn);border-color:rgba(224,160,64,.3);}
-.st-p.on,.st-p:hover{background:rgba(224,160,64,.3);}
-.st-e{background:rgba(90,96,128,.12);color:var(--t3);border-color:rgba(90,96,128,.25);}
-.st-e.on,.st-e:hover{background:rgba(90,96,128,.22);}
-/* version manage panel */
-.vm-list{display:flex;flex-direction:column;gap:8px;}
-.vm-row{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.vm-row.is-cur{border-color:rgba(76,175,130,.4);}
-.vm-info{flex:1;}
-.vm-name{font-size:14px;font-weight:600;}
-.vm-desc{font-size:12px;color:var(--t3);margin-top:2px;}
-/* image overlay */
-.iov{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;align-items:center;justify-content:center;cursor:zoom-out;}
-.iov.open{display:flex;}
-.iov img{max-width:90vw;max-height:90vh;border-radius:6px;}
-/* toast */
-.tw{position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
-.toast{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.4);animation:fin .2s;}
-.toast.err{border-color:var(--danger);color:var(--danger);}
-@keyframes fin{from{opacity:0;transform:translateY(6px);}to{opacity:1;}}
-/* upload zone */
-.upzone{border:1px dashed var(--border);border-radius:var(--r);padding:16px;text-align:center;font-size:13px;color:var(--t3);cursor:pointer;transition:all .15s;}
-.upzone:hover{border-color:var(--accent);color:var(--accent);}
-/* cfgmodal */
-#cfg-txt{width:100%;min-height:280px;font-family:monospace;font-size:12px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);}
-
-</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Art Platform - 美术资源管理</title>
+<script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-<div class="topbar">
-  <div style="display:flex;align-items:center;gap:14px">
-    <div class="logo">&#127912; <span id="pname">ArtHub</span></div>
-    <div class="ver-wrap">
-      <select class="ver-sel" id="verSel" onchange="onVerChange()"><option>&#21152;&#36733;&#20013;</option></select>
-      <span class="ver-arrow">&#9660;</span>
-    </div>
-    <span class="cur-badge" id="curBadge" style="display:none"></span>
-  </div>
-  <div class="topbar-r">
-    <button class="btn bg" onclick="open_('mVersions')" style="font-size:12px;padding:5px 12px">&#128230; &#29256;&#26412;&#31649;&#29702;</button>
-    <button class="btn bg" onclick="openCfg()" style="font-size:12px;padding:5px 12px">&#9881; &#37197;&#32622;</button>
-  </div>
-</div>
-<div class="nav-tabs">
-  <button class="tab on" data-tab="board" onclick="setTab('board')">&#127912; &#36164;&#28304;&#30475;&#26495;</button>
-  <button class="tab" data-tab="pending" onclick="setTab('pending')">&#127775; &#24453;&#23450;&#24211;</button>
-</div>
-<div class="content" id="mc"></div>
+<body class="bg-gray-50 min-h-screen font-sans">
 
-<!-- 新建版本 -->
-<div class="ov" id="mNewVer"><div class="modal">
-  <div class="mh"><h3>&#65291; &#26032;&#24314;&#29256;&#26412;</h3><button class="mcl" onclick="close_('mNewVer')">&#x2715;</button></div>
-  <div class="mb">
-    <div class="fg"><label>&#29256;&#26412;&#21517;&#31216; *</label><input id="nv-name" placeholder="&#22914;&#65306;v1.0&#12289;&#39318;&#21457;&#29256;&#12289;Demo&#29256;"/></div>
-    <div class="fg"><label>&#22791;&#27880;&#35828;&#26126;</label><input id="nv-desc" placeholder="&#36825;&#20010;&#29256;&#26412;&#30340;&#29992;&#36884;&#35828;&#26126;"/></div>
-    <div class="fg">
-      <label>&#20174;&#24050;&#26377;&#29256;&#26412;&#22797;&#21046;&#36164;&#28304;&#27004;</label>
-      <select id="nv-copy"><option value="">&#31354;&#30333;&#29256;&#26412;&#65288;&#19981;&#22797;&#21046;&#65289;</option></select>
+<!-- 顶部 -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-2">
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">🎨</span>
+      <h1 class="text-lg font-bold text-gray-800">Art Platform</h1>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <span class="text-gray-500">资源位 <b id="st-slots">-</b></span>
+      <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-800 text-xs font-medium">● 绿 <b id="st-active">-</b></span>
+      <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">● 黄 <b id="st-inactive">-</b></span>
+      <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 text-xs font-medium">● 红 <b id="st-pending">-</b></span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="openCreateSlot()" class="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">+ 新建资源位</button>
+      <button onclick="openSyncPreview()" class="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold">⚡ SYNC</button>
     </div>
   </div>
-  <div class="mf"><button class="btn bg" onclick="close_('mNewVer')">&#21462;&#28040;</button><button class="btn bp" onclick="submitNewVer()">&#21019;&#24314;</button></div>
-</div></div>
+</header>
 
-<!-- 编辑版本 -->
-<div class="ov" id="mEditVer"><div class="modal msm">
-  <div class="mh"><h3>&#32534;&#36753;&#29256;&#26412;</h3><button class="mcl" onclick="close_('mEditVer')">&#x2715;</button></div>
-  <div class="mb">
-    <input type="hidden" id="ev-id"/>
-    <div class="fg"><label>&#29256;&#26412;&#21517;&#31216;</label><input id="ev-name"/></div>
-    <div class="fg"><label>&#22791;&#27880;&#35828;&#26126;</label><input id="ev-desc"/></div>
+<!-- 主体 -->
+<main class="max-w-6xl mx-auto px-4 py-6">
+  <div class="flex gap-2 mb-4 flex-wrap">
+    <select id="filter-type" onchange="loadSlots()" class="text-sm border rounded-lg px-2 py-1.5 text-gray-600">
+      <option value="">全部类型</option>
+      <option value="image">🖼 图片</option>
+      <option value="audio">🎵 音频</option>
+      <option value="video">🎬 视频</option>
+    </select>
+    <select id="filter-cat" onchange="loadSlots()" class="text-sm border rounded-lg px-2 py-1.5 text-gray-600">
+      <option value="">全部分类</option>
+      <option>角色</option><option>场景</option><option>UI</option>
+      <option>特效</option><option>音效</option><option>其他</option>
+    </select>
+    <button onclick="loadSlots()" class="text-sm px-3 py-1.5 border rounded-lg text-gray-600 hover:bg-gray-100">刷新</button>
   </div>
-  <div class="mf"><button class="btn bg" onclick="close_('mEditVer')">&#21462;&#28040;</button><button class="btn bp" onclick="submitEditVer()">&#20445;&#23384;</button></div>
-</div></div>
+  <div id="slot-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  <div id="empty-tip" class="hidden text-center py-20 text-gray-400">暂无资源位，点击「新建资源位」开始</div>
+</main>
 
-<!-- 版本管理 -->
-<div class="ov" id="mVersions"><div class="modal">
-  <div class="mh"><h3>&#128230; &#29256;&#26412;&#31649;&#29702;</h3><button class="mcl" onclick="close_('mVersions')">&#x2715;</button></div>
-  <div class="mb">
-    <div id="vm-list" class="vm-list"></div>
-    <div style="margin-top:12px"><button class="btn bp" onclick="close_('mVersions');open_('mNewVer')">&#65291; &#26032;&#24314;&#29256;&#26412;</button></div>
-  </div>
-  <div class="mf"><button class="btn bg" onclick="close_('mVersions')">&#20851;&#38381;</button></div>
-</div></div>
-
-<!-- 新建资源 -->
-<div class="ov" id="mNewAsset"><div class="modal">
-  <div class="mh"><h3>&#65291; &#28155;&#21152;&#36164;&#28304;&#27004;</h3><button class="mcl" onclick="close_('mNewAsset')">&#x2715;</button></div>
-  <div class="mb">
-    <div class="fg"><label>&#36164;&#28304;&#21517;&#31216; *</label><input id="na-name" placeholder="&#22914;&#65306;&#20027;&#35282;&#31435;&#32534;&#12289;&#22823;&#21385;BGM"/></div>
-    <div class="fg"><label>&#25551;&#36848;</label><textarea id="na-desc" placeholder="&#23614;&#23544;&#35268;&#26684;&#12289;&#39118;&#26684;&#35201;&#27714;" style="min-height:50px"></textarea></div>
-    <div class="frow">
-      <div class="fg"><label>&#20998;&#31867;</label><select id="na-cat"></select></div>
-      <div class="fg"><label>&#31867;&#22411;</label><select id="na-type"></select></div>
-    </div>
-  </div>
-  <div class="mf"><button class="btn bg" onclick="close_('mNewAsset')">&#21462;&#28040;</button><button class="btn bp" onclick="submitNewAsset()">&#28155;&#21152;</button></div>
-</div></div>
-
-<!-- 资源详情 -->
-<div class="ov" id="mDetail"><div class="modal mlg">
-  <div class="mh">
-    <h3 id="dt-name">&#36164;&#28304;&#35814;&#24773;</h3>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button class="btn bd" style="padding:4px 10px;font-size:12px" onclick="deleteAsset()">&#21024;&#38500;</button>
-      <button class="mcl" onclick="close_('mDetail')">&#x2715;</button>
-    </div>
-  </div>
-  <div class="mb">
-    <div class="det-layout">
+<!-- Modal：资源位详情 -->
+<div id="modal-slot" class="hidden fixed inset-0 bg-black/40 z-50 flex items-start justify-center pt-10 px-4 overflow-y-auto">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mb-10">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
       <div>
-        <div class="det-preview" id="dt-prev"></div>
-        <div style="margin-top:8px">
-          <label class="upzone">
-            &#128193; &#30433;&#20987;&#19978;&#20256; / &#26367;&#25442;&#25991;&#20214;
-            <input type="file" style="display:none" onchange="dtUpload(this)">
-          </label>
-        </div>
-        <div style="margin-top:8px">
-          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">&#21382;&#21490;&#25991;&#20214;&#65288;&#30433;&#20987;&#20999;&#25442;&#29983;&#25928;&#29256;&#26412;&#65289;</div>
-          <div id="dt-files"></div>
+        <h2 class="text-lg font-bold text-gray-800" id="modal-slot-title"></h2>
+        <div class="flex gap-2 mt-1">
+          <span id="modal-game-key" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded font-mono text-xs"></span>
+          <span id="modal-asset-type" class="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs"></span>
+          <span id="modal-category" class="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs"></span>
         </div>
       </div>
+      <button onclick="closeModal('modal-slot')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4">×</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <p id="modal-description" class="text-sm text-gray-500"></p>
+
+      <!-- 上传区 -->
+      <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 space-y-2">
+        <p class="text-sm font-medium text-gray-700">添加资源 <span class="text-xs text-gray-400 font-normal">（添加后默认为「未使用」黄色，需手动激活）</span></p>
+        <div class="flex gap-2 flex-wrap">
+          <input type="file" id="upload-file" class="text-sm text-gray-600 flex-1 min-w-0 border rounded px-2 py-1">
+          <input type="text" id="upload-note" placeholder="备注（可选）" class="text-sm border rounded-lg px-2 py-1 w-36">
+          <button onclick="doUpload()" class="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 whitespace-nowrap">上传文件</button>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="add-url-input" placeholder="或粘贴 URL（音乐/图片链接）" class="text-sm border rounded-lg px-2 py-1 flex-1">
+          <button onclick="doAddUrl()" class="px-3 py-1.5 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 whitespace-nowrap">添加URL</button>
+        </div>
+      </div>
+
+      <!-- 资源列表 -->
       <div>
-        <div class="kv" id="dt-meta"></div>
-        <div style="margin:12px 0 6px;font-size:12px;color:var(--t2);font-weight:600">&#36164;&#28304;&#29366;&#24577;</div>
-        <div id="dt-status" class="st-btns"></div>
-        <div style="margin:14px 0 6px;font-size:12px;color:var(--t2);font-weight:600">&#32534;&#36753;&#20449;&#24687;</div>
-        <input type="hidden" id="ea-id"/>
-        <div class="fg"><label>&#21517;&#31216;</label><input id="ea-name"/></div>
-        <div class="frow">
-          <div class="fg"><label>&#20998;&#31867;</label><select id="ea-cat"></select></div>
-          <div class="fg"><label>&#31867;&#22411;</label><select id="ea-type"></select></div>
-        </div>
-        <div class="fg"><label>&#25551;&#36848;</label><textarea id="ea-desc" style="min-height:44px"></textarea></div>
-        <button class="btn bp" style="width:100%;margin-bottom:14px" onclick="submitEditAsset()">&#20445;&#23384;&#20462;&#25913;</button>
-        <div style="font-size:12px;color:var(--t2);font-weight:600;margin-bottom:6px">&#22791;&#27880;</div>
-        <div id="dt-notes"></div>
-        <div class="note-inp">
-          <input id="note-inp" placeholder="&#28155;&#21152;&#22791;&#27880;" onkeydown="if(event.key==='Enter')addNote()"/>
-          <button class="btn bp" style="padding:6px 12px;font-size:12px" onclick="addNote()">&#28155;&#21152;</button>
-        </div>
+        <p class="text-sm font-medium text-gray-700 mb-2">资源列表</p>
+        <div id="resource-list" class="space-y-2 max-h-80 overflow-y-auto pr-1"></div>
+        <div id="resource-empty" class="hidden text-sm text-gray-400 py-6 text-center">还没有任何资源</div>
       </div>
     </div>
   </div>
-</div></div>
-
-<!-- 快速菜单 -->
-<div id="qm" style="position:fixed;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);min-width:130px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:500;display:none">
-  <div style="padding:8px 12px;font-size:13px;cursor:pointer;color:var(--success)" onclick="qmSetStatus('confirmed')">&#10003; &#24050;&#30830;&#35748;</div>
-  <div style="padding:8px 12px;font-size:13px;cursor:pointer;color:var(--warn)" onclick="qmSetStatus('pending')">&#127775; &#31227;&#20837;&#24453;&#23450;&#24211;</div>
-  <div style="padding:8px 12px;font-size:13px;cursor:pointer;color:var(--t3)" onclick="qmSetStatus('empty')">&#9633; &#28165;&#31354;&#20026;&#26410;&#22635;&#20805;</div>
 </div>
-<style>#qm.open2{display:block!important;}</style>
 
-<!-- 配置 -->
-<div class="ov" id="mCfg"><div class="modal">
-  <div class="mh"><h3>&#9881; &#39033;&#30446;&#37197;&#32622; (project.yaml)</h3><button class="mcl" onclick="close_('mCfg')">&#x2715;</button></div>
-  <div class="mb"><textarea id="cfg-txt"></textarea></div>
-  <div class="mf"><button class="btn bg" onclick="close_('mCfg')">&#21462;&#28040;</button><button class="btn bp" onclick="saveCfg()">&#20445;&#23384;</button></div>
-</div></div>
+<!-- Modal：新建资源位 -->
+<div id="modal-create" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h2 class="text-lg font-bold text-gray-800">新建资源位</h2>
+      <button onclick="closeModal('modal-create')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+    </div>
+    <div class="px-6 py-4 space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">game_key <span class="text-red-500">*</span> <span class="text-gray-400">小写+下划线</span></label>
+          <input id="c-game-key" type="text" placeholder="player_idle" class="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-indigo-300">
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">显示名称 <span class="text-red-500">*</span></label>
+          <input id="c-name" type="text" placeholder="玩家站立动画" class="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-indigo-300">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">资源类型</label>
+          <select id="c-type" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="image">🖼 图片</option>
+            <option value="audio">🎵 音频</option>
+            <option value="video">🎬 视频</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-gray-500 mb-1 block">分类</label>
+          <select id="c-cat" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option>角色</option><option>场景</option><option>UI</option>
+            <option>特效</option><option>音效</option><option>其他</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">描述</label>
+        <input id="c-desc" type="text" placeholder="说明这个资源位用在哪里" class="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 ring-indigo-300">
+      </div>
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">Metadata（JSON，可选）</label>
+        <input id="c-meta" type="text" placeholder='{"width":64,"height":64}' class="w-full border rounded-lg px-3 py-2 text-sm font-mono outline-none focus:ring-2 ring-indigo-300">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('modal-create')" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+        <button onclick="doCreateSlot()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">创建</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-<!-- 图片大图 -->
-<div class="iov" id="iov" onclick="this.classList.remove('open')"><img id="iovImg" src="" alt=""/></div>
-<div class="tw" id="tw"></div>
+<!-- Modal：Sync 预览 -->
+<div id="modal-sync" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h2 class="text-lg font-bold text-gray-800">⚡ Sync 预览</h2>
+      <button onclick="closeModal('modal-sync')" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div>
+        <p class="text-sm font-semibold text-red-700 mb-2">🗑️ 将被彻底删除（红色资源）</p>
+        <div id="sync-delete-list" class="text-sm text-gray-600 space-y-1 max-h-40 overflow-y-auto bg-red-50 rounded-lg p-3"></div>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-green-700 mb-1">✅ Manifest 将生效的资源数</p>
+        <div id="sync-manifest-count" class="text-sm text-gray-600 bg-green-50 rounded-lg p-3"></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t">
+        <button onclick="closeModal('modal-sync')" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+        <button onclick="doSync()" class="px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold">确认执行 SYNC</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm text-white shadow-lg bg-gray-800"></div>
+
 <script>
+let currentSlotId = null;
 
-var versions=[], curVid=null, curTab='board', cfg={};
-var detAsset=null;
+function toast(msg, color) {
+  color = color || "bg-gray-800";
+  const el = document.getElementById("toast");
+  el.className = "fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl text-sm text-white shadow-lg " + color;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(window._tt);
+  window._tt = setTimeout(function(){ el.classList.add("hidden"); }, 3000);
+}
 
-async function init(){
-  try{
-    await loadCfg();
-    await loadVersions();
-  } catch(e){
-    document.getElementById('mc').innerHTML='<div class="empty-state"><p style="color:var(--danger)">加载失败: '+e.message+'</p></div>';
+function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+function typeIcon(t) {
+  return { image:"🖼", audio:"🎵", video:"🎬" }[t] || "📁";
+}
+
+async function loadStats() {
+  const res = await fetch("/api/stats");
+  const d = await res.json();
+  document.getElementById("st-slots").textContent    = d.total_slots;
+  document.getElementById("st-active").textContent   = d.active;
+  document.getElementById("st-inactive").textContent = d.inactive;
+  document.getElementById("st-pending").textContent  = d.pending_delete;
+}
+
+async function loadSlots() {
+  const type = document.getElementById("filter-type").value;
+  const cat  = document.getElementById("filter-cat").value;
+  let url = "/api/slots?";
+  if (type) url += "asset_type=" + type + "&";
+  if (cat)  url += "category=" + encodeURIComponent(cat) + "&";
+  const res = await fetch(url);
+  const slots = await res.json();
+  const list  = document.getElementById("slot-list");
+  const empty = document.getElementById("empty-tip");
+
+  if (!slots.length) {
+    list.innerHTML = "";
+    empty.classList.remove("hidden");
+    loadStats();
+    return;
   }
-}
+  empty.classList.add("hidden");
 
-async function loadCfg(){
-  cfg=await(await fetch('/api/config')).json();
-  var pname=cfg.project&&cfg.project.name?cfg.project.name:'ArtHub';
-  document.getElementById('pname').textContent=pname;
-  // populate category selects
-  var cats=(cfg.categories||[]);
-  var catOpts=cats.map(function(c){return'<option>'+c+'</option>';}).join('');
-  ['na-cat','ea-cat'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=catOpts;});
-  var typeOpts=['image','audio','video','file'].map(function(t){return'<option value="'+t+'">'+typeLabel(t)+'</option>';}).join('');
-  ['na-type','ea-type'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=typeOpts;});
-}
+  list.innerHTML = slots.map(function(s) {
+    const active = s.active_resource;
+    const statusKey = active ? active.status : "empty";
+    const dot = { active:"bg-green-400", inactive:"bg-yellow-400", pending_delete:"bg-red-400", empty:"bg-gray-300" }[statusKey] || "bg-gray-300";
+    const statusText = { active:"正在使用", inactive:"未使用", pending_delete:"待删除", empty:"无资源" }[statusKey] || "";
+    const badgeCls = {
+      active: "bg-green-100 text-green-700",
+      inactive: "bg-yellow-100 text-yellow-700",
+      pending_delete: "bg-red-100 text-red-700",
+      empty: "bg-gray-100 text-gray-500"
+    }[statusKey] || "bg-gray-100 text-gray-500";
 
-async function loadVersions(){
-  versions=await(await fetch('/api/versions')).json();
-  renderVersionSel();
-  if(!curVid){
-    var cur=versions.find(function(v){return v.is_current;});
-    if(cur)curVid=cur.id;
-    else if(versions.length)curVid=versions[0].id;
-  }
-  if(curVid) await renderContent();
-  else renderNoVersion();
-}
-
-function renderVersionSel(){
-  var sel=document.getElementById('verSel');
-  if(!sel)return;
-  var cur=versions.find(function(v){return v.is_current;});
-  sel.innerHTML=versions.map(function(v){
-    return '<option value="'+v.id+'"'+(v.id===curVid?' selected':'')+'>'+esc(v.name)+(v.is_current?' ✓':'')+'</option>';
-  }).join('');
-  if(!versions.length)sel.innerHTML='<option value="">— 暂无版本 —</option>';
-  // update badge
-  var badge=document.getElementById('curBadge');
-  if(badge&&cur){
-    badge.style.display='';
-    badge.textContent='当前使用：'+cur.name;
-  } else if(badge){
-    badge.style.display='none';
-  }
-  // update version manage list
-  renderVmList();
-}
-
-function renderVmList(){
-  var el=document.getElementById('vm-list');
-  if(!el)return;
-  if(!versions.length){el.innerHTML='<p style="color:var(--t3);font-size:13px">暂无版本</p>';return;}
-  el.innerHTML=versions.map(function(v){
-    return '<div class="vm-row'+(v.is_current?' is-cur':'')+'"><div class="vm-info">'
-      +'<div class="vm-name">'+esc(v.name)+(v.is_current?'&nbsp;<span class="cur-badge">当前使用</span>':'')+'</div>'
-      +(v.description?'<div class="vm-desc">'+esc(v.description)+'</div>':'')
-      +'</div><div style="display:flex;gap:6px">'
-      +(!v.is_current?'<button class="btn bs" style="padding:4px 10px;font-size:12px" onclick="setCurrent(\''+v.id+'\')">设为使用</button>':'')
-      +'<button class="btn bg" style="padding:4px 10px;font-size:12px" onclick="editVersion(\''+v.id+'\')">编辑</button>'
-      +(!v.is_current?'<button class="btn bd" style="padding:4px 10px;font-size:12px" onclick="deleteVersion(\''+v.id+'\')">删除</button>':'')
-      +'</div></div>';
-  }).join('');
-}
-
-function renderNoVersion(){
-  document.getElementById('mc').innerHTML='<div class="empty-state"><p>还没有版本，先创建一个版本开始管理资源</p><button class="btn bp" onclick="open_(\'mNewVer\')">&#65291; 创建版本</button></div>';
-}
-
-async function renderContent(){
-  if(!curVid){renderNoVersion();return;}
-  if(curTab==='board') await renderBoard();
-  else if(curTab==='pending') await renderPending();
-}
-
-function setTab(t){
-  curTab=t;
-  document.querySelectorAll('.tab').forEach(function(el){el.classList.remove('on');});
-  document.querySelector('.tab[data-tab="'+t+'"]').classList.add('on');
-  renderContent();
-}
-
-async function renderBoard(){
-  var assets=await(await fetch('/api/versions/'+curVid+'/assets')).json();
-  var cats=cfg.categories||['其他'];
-  var mc=document.getElementById('mc');
-  // group by category
-  var grouped={};
-  cats.forEach(function(c){grouped[c]=[];});
-  assets.forEach(function(a){
-    if(!grouped[a.category])grouped[a.category]=[];
-    grouped[a.category].push(a);
-  });
-  // only confirmed assets for board (empty slots shown as placeholder)
-  var confirmed=assets.filter(function(a){return a.status==='confirmed'||a.status==='empty';});
-  var html='';
-  cats.forEach(function(cat){
-    var items=grouped[cat]||[];
-    if(!items.length)return;
-    var cards=items.map(function(a){return assetCard(a,cat);}).join('');
-    cards+='<div class="acard-add" onclick="openAddAsset(\''+cat+'\')"><div style="font-size:22px">&#65291;</div><div>添加资源</div></div>';
-    html+='<div class="cat-sec"><div class="cat-head"><div class="cat-title">'+cat+'</div><div class="cat-count">'+items.length+'</div></div><div class="asset-grid">'+cards+'</div></div>';
-  });
-  // cats with no items — show add button only
-  cats.forEach(function(cat){
-    if(grouped[cat]&&grouped[cat].length)return;
-    html+='<div class="cat-sec"><div class="cat-head"><div class="cat-title">'+cat+'</div><div class="cat-count">0</div></div>'
-      +'<div class="asset-grid"><div class="acard-add" onclick="openAddAsset(\''+cat+'\')"><div style="font-size:22px">&#65291;</div><div>添加资源</div></div></div></div>';
-  });
-  if(!html)html='<div class="empty-state"><p>当前版本还没有资源</p></div>';
-  mc.innerHTML=html;
-}
-
-function assetCard(a, cat){
-  var thumb='';
-  if(a.status==='confirmed'&&a.active_file){
-    var url='/api/uploads/'+a.id+'/'+a.active_file.filename;
-    if(a.asset_type==='image'){
-      thumb='<div class="acard-thumb"><img src="'+url+'" loading="lazy" onclick="event.stopPropagation();showImg(\''+url+'\')" /></div>';
-    } else if(a.asset_type==='audio'){
-      thumb='<div class="acard-thumb"><div class="placeholder-audio" onclick="event.stopPropagation()"><div style="font-size:28px">&#127925;</div><audio controls style="width:90%;margin-top:4px"><source src="'+url+'"></audio></div></div>';
-    } else {
-      thumb='<div class="acard-thumb"><div class="placeholder-file"><div style="font-size:28px">&#128196;</div><div>'+esc(a.active_file.original.slice(0,14))+'</div></div></div>';
+    var previewHtml = "";
+    if (active && !active.source_url && active.filename) {
+      if (s.asset_type === "image") {
+        previewHtml = '<img src="/uploads/' + s.id + '/' + active.filename + '" class="w-full h-28 object-cover rounded-lg mb-2" onerror="this.style.display=\'none\'">';
+      } else if (s.asset_type === "audio") {
+        previewHtml = '<audio controls class="w-full mb-2" style="height:32px"><source src="/uploads/' + s.id + '/' + active.filename + '"></audio>';
+      }
     }
-  } else if(a.status==='empty'||a.status==='pending'){
-    if(a.asset_type==='audio'){
-      thumb='<div class="acard-thumb"><div class="placeholder-audio"><div style="font-size:28px;opacity:.35">&#127925;</div><div style="font-size:11px">暂无音频</div></div></div>';
-    } else {
-      var color=placeholderColor(a.name);
-      thumb='<div class="acard-thumb"><div class="placeholder-img" style="background:'+color+'"><span style="font-size:11px;color:rgba(255,255,255,.5)">'+esc(a.name.charAt(0))+'</span></div></div>';
-    }
+
+    return '<div class="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition cursor-pointer" onclick="openSlotDetail(\'' + s.id + '\')">'
+      + previewHtml
+      + '<div class="flex items-start justify-between gap-2">'
+      + '<div class="flex-1 min-w-0">'
+      + '<div class="flex items-center gap-1.5 mb-1"><span class="w-2 h-2 rounded-full flex-shrink-0 ' + dot + '"></span><span class="text-xs text-gray-400 font-mono truncate">' + s.game_key + '</span></div>'
+      + '<p class="font-semibold text-gray-800 text-sm truncate">' + s.name + '</p>'
+      + '<p class="text-xs text-gray-400 mt-0.5">' + typeIcon(s.asset_type) + ' ' + s.asset_type + ' · ' + s.category + '</p>'
+      + '</div>'
+      + '<div class="flex flex-col items-end gap-1 flex-shrink-0">'
+      + '<span class="text-xs px-1.5 py-0.5 rounded ' + badgeCls + '">' + statusText + '</span>'
+      + '<span class="text-xs text-gray-400">' + s.resource_count + ' 个资源</span>'
+      + '</div></div></div>';
+  }).join("");
+  loadStats();
+}
+
+async function openSlotDetail(slotId) {
+  currentSlotId = slotId;
+  const res = await fetch("/api/slots/" + slotId);
+  const s = await res.json();
+  document.getElementById("modal-slot-title").textContent  = s.name;
+  document.getElementById("modal-game-key").textContent    = s.game_key;
+  document.getElementById("modal-asset-type").textContent  = typeIcon(s.asset_type) + " " + s.asset_type;
+  document.getElementById("modal-category").textContent    = s.category;
+  document.getElementById("modal-description").textContent = s.description || "";
+  document.getElementById("upload-file").value   = "";
+  document.getElementById("upload-note").value   = "";
+  document.getElementById("add-url-input").value = "";
+  renderResources(s.resources || [], slotId, s.asset_type);
+  openModal("modal-slot");
+}
+
+function renderResources(resources, slotId, assetType) {
+  const list  = document.getElementById("resource-list");
+  const empty = document.getElementById("resource-empty");
+  if (!resources.length) {
+    list.innerHTML = "";
+    empty.classList.remove("hidden");
+    return;
   }
-  var stDot='<span class="sdot sdot-'+(a.status==='confirmed'?'c':a.status==='pending'?'p':'e')+'"></span>';
-  var stLab='<span class="slab">'+(a.status==='confirmed'?'已确认':a.status==='pending'?'待定':'未填充')+'</span>';
-  var pendBadge=a.status==='pending'?'<div class="pending-badge">待定</div>':'';
-  return '<div class="acard '+a.status+'" onclick="openDetail(\''+a.id+'\')">'
-    +pendBadge
-    +thumb
-    +'<div class="acard-info"><div class="acard-name">'+esc(a.name)+'</div>'
-    +'<div class="acard-status">'+stDot+stLab+'</div></div>'
-    +'<button class="acard-menu" onclick="event.stopPropagation();quickMenu(event,\''+a.id+'\')">&#8943;</button>'
-    +'</div>';
-}
-
-function placeholderColor(name){
-  var colors=['#5b4fa8','#a84f4f','#4f8ca8','#4fa871','#a88a4f','#884fa8','#4f6ea8'];
-  var h=0;for(var i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))&0xffff;
-  return colors[h%colors.length];
-}
-
-function typeLabel(t){return{image:'图片',audio:'音频',video:'视频',file:'文件'}[t]||t;}
-
-async function renderPending(){
-  var assets=await(await fetch('/api/versions/'+curVid+'/assets?status=pending')).json();
-  var mc=document.getElementById('mc');
-  mc.innerHTML='<div class="pending-lib"><div class="pl-intro">&#127775; 待定资源库 — 这里存放所有标记为「待定」的资源，可以随时将它们移回当前版本（设为已确认）或清除。</div>'
-    +(assets.length?'<div class="asset-grid">'+assets.map(function(a){return assetCard(a,a.category);}).join('')+'</div>'
-    :'<div class="empty-state"><p>备选库为空，将资源标记为「待定」后会出现在这里</p></div>')
-    +'</div>';
-}
-
-// ── 快速菜单 ────────────────────────────────────────────
-
-var qmTargetId=null;
-function quickMenu(e,aid){
-  e.stopPropagation();
-  qmTargetId=aid;
-  var a=document.getElementById('qm');
-  if(!a)return;
-  a.style.top=(e.clientY+6)+'px';
-  a.style.left=(e.clientX-120)+'px';
-  a.classList.add('open2');
-}
-document.addEventListener('click',function(){
-  var el=document.getElementById('qm');
-  if(el)el.classList.remove('open2');
-});
-
-async function qmSetStatus(st){
-  if(!qmTargetId)return;
-  await setStatus(qmTargetId,st);
-  qmTargetId=null;
-  renderContent();
-}
-
-async function setStatus(aid,st){
-  var r=await fetch('/api/assets/'+aid+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:st})});
-  var d=await r.json();
-  if(!r.ok)toast('❌ '+(d.error||'失败'),true);
-}
-
-// ── 版本操作 ────────────────────────────────────────────
-
-async function onVerChange(){
-  var sel=document.getElementById('verSel');
-  if(!sel.value)return;
-  curVid=sel.value;
-  renderContent();
-}
-
-async function setCurrent(vid){
-  var r=await fetch('/api/versions/'+vid+'/set-current',{method:'POST'});
-  if(r.ok){toast('已设为当前使用版本');await loadVersions();}
-  else toast('❌ 失败',true);
-}
-
-async function deleteVersion(vid){
-  if(!confirm('确认删除这个版本？版本下所有资源也会一并删除。'))return;
-  var r=await fetch('/api/versions/'+vid,{method:'DELETE'});
-  var d=await r.json();
-  if(r.ok){
-    if(curVid===vid)curVid=null;
-    toast('版本已删除');await loadVersions();
-  } else toast('❌ '+(d.error||'删除失败'),true);
-}
-
-function editVersion(vid){
-  var v=versions.find(function(v){return v.id===vid;});
-  if(!v)return;
-  document.getElementById('ev-id').value=vid;
-  document.getElementById('ev-name').value=v.name;
-  document.getElementById('ev-desc').value=v.description||'';
-  open_('mEditVer');
-}
-async function submitEditVer(){
-  var vid=document.getElementById('ev-id').value;
-  var name=document.getElementById('ev-name').value.trim();
-  if(!name){toast('请填写版本名称',true);return;}
-  var r=await fetch('/api/versions/'+vid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,description:document.getElementById('ev-desc').value.trim()})});
-  if(r.ok){close_('mEditVer');toast('已保存');await loadVersions();}
-  else toast('❌ 保存失败',true);
-}
-
-async function submitNewVer(){
-  var name=document.getElementById('nv-name').value.trim();
-  if(!name){toast('请填写版本名称',true);return;}
-  var copyFrom=document.getElementById('nv-copy').value||undefined;
-  var r=await fetch('/api/versions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,description:document.getElementById('nv-desc').value.trim(),copy_from:copyFrom})});
-  var d=await r.json();
-  if(r.ok){
-    close_('mNewVer');
-    ['nv-name','nv-desc'].forEach(function(id){document.getElementById(id).value='';});
-    toast('版本已创建');curVid=d.id;await loadVersions();
-  }  else toast('❌ '+(d.error||'创建失败'),true);
-}
-
-// ── 资源操作 ────────────────────────────────────────────
-
-function openAddAsset(cat){
-  var el=document.getElementById('na-cat');
-  if(el&&cat){for(var i=0;i<el.options.length;i++){if(el.options[i].value===cat){el.selectedIndex=i;break;}}}
-  open_('mNewAsset');
-}
-
-async function submitNewAsset(){
-  var name=document.getElementById('na-name').value.trim();
-  if(!name){toast('请填写资源名称',true);return;}
-  if(!curVid){toast('请先选择版本',true);return;}
-  var r=await fetch('/api/versions/'+curVid+'/assets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    name:name,category:document.getElementById('na-cat').value,
-    asset_type:document.getElementById('na-type').value,
-    description:document.getElementById('na-desc').value.trim()
-  })});
-  var d=await r.json();
-  if(r.ok){close_('mNewAsset');['na-name','na-desc'].forEach(function(id){document.getElementById(id).value='';});toast('资源已添加');renderContent();}
-  else toast('❌ '+(d.error||'失败'),true);
-}
-
-async function openDetail(aid){
-  var a=await(await fetch('/api/assets/'+aid)).json();
-  detAsset=a;
-  document.getElementById('dt-name').textContent=a.name;
-  // preview
-  var prev=document.getElementById('dt-prev');
-  var activeFile=a.files&&a.files.find(function(f){return f.is_active;});
-  if(activeFile){
-    var url='/api/uploads/'+aid+'/'+activeFile.filename;
-    if(a.asset_type==='image'){
-      prev.innerHTML='<img src="'+url+'" onclick="showImg(\''+url+'\')" />';
-    } else if(a.asset_type==='audio'){
-      prev.innerHTML='<audio controls style="width:100%;margin-top:30px"><source src="'+url+'"></audio>';
-    } else {
-      prev.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:8px;color:var(--t3)"><div style="font-size:36px">&#128196;</div><div style="font-size:12px">'+esc(activeFile.original)+'</div><a href="'+url+'" target="_blank" class="btn bg" style="font-size:12px;padding:5px 12px">下载</a></div>';
+  empty.classList.add("hidden");
+  list.innerHTML = resources.map(function(r) {
+    const isUrl = !!r.source_url;
+    const fileUrl = isUrl ? r.source_url : "/uploads/" + slotId + "/" + r.filename;
+    var preview = '<span class="text-xl flex-shrink-0">📁</span>';
+    if (assetType === "image" && !isUrl) {
+      preview = '<img src="' + fileUrl + '" class="w-10 h-10 object-cover rounded flex-shrink-0" onerror="this.style.display=\'none\'">';
+    } else if (assetType === "audio") {
+      preview = '<span class="text-xl flex-shrink-0">🎵</span>';
     }
+    const borderCls = r.status === "active" ? "border-green-200 bg-green-50"
+      : r.status === "pending_delete" ? "border-red-200 bg-red-50"
+      : "border-gray-200 bg-white";
+    const selCls = r.status === "active" ? "border-green-300 text-green-700"
+      : r.status === "pending_delete" ? "border-red-300 text-red-700"
+      : "border-yellow-300 text-yellow-700";
+    const urlLine = isUrl ? '<a href="' + r.source_url + '" target="_blank" class="text-xs text-blue-500 underline truncate block">URL资源↗</a>' : "";
+    const noteLine = r.note ? '<p class="text-xs text-gray-500 italic">' + r.note + '</p>' : "";
+
+    return '<div class="flex items-center gap-3 p-2 rounded-lg border ' + borderCls + '">'
+      + preview
+      + '<div class="flex-1 min-w-0">'
+      + '<p class="text-xs font-medium text-gray-700 truncate">' + r.original_name + '</p>'
+      + '<p class="text-xs text-gray-400">' + (r.uploaded_by === "ai" ? "🤖 AI添加" : "👤 用户上传") + ' · ' + r.uploaded_at.slice(0,10) + '</p>'
+      + noteLine + urlLine
+      + '</div>'
+      + '<div class="flex items-center gap-1.5 flex-shrink-0">'
+      + '<select onchange="setResourceStatus(\'' + r.id + '\', this.value)" class="text-xs border rounded px-1.5 py-1 ' + selCls + '">'
+      + '<option value="active"' + (r.status==="active"?" selected":"") + '>● 正在使用</option>'
+      + '<option value="inactive"' + (r.status==="inactive"?" selected":"") + '>● 未使用</option>'
+      + '<option value="pending_delete"' + (r.status==="pending_delete"?" selected":"") + '>● 待删除</option>'
+      + '</select>'
+      + '<button onclick="deleteResource(\'' + r.id + '\')" class="text-gray-300 hover:text-red-500 text-xl leading-none" title="立即删除">×</button>'
+      + '</div></div>';
+  }).join("");
+}
+
+async function doUpload() {
+  const file = document.getElementById("upload-file").files[0];
+  if (!file) { toast("请选择文件", "bg-red-500"); return; }
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("uploaded_by", "user");
+  fd.append("note", document.getElementById("upload-note").value);
+  const res = await fetch("/api/slots/" + currentSlotId + "/upload", { method:"POST", body:fd });
+  const d = await res.json();
+  if (!res.ok) { toast(d.error || "上传失败", "bg-red-500"); return; }
+  toast("上传成功（已设为未使用）", "bg-green-600");
+  openSlotDetail(currentSlotId);
+  loadSlots();
+}
+
+async function doAddUrl() {
+  const url = document.getElementById("add-url-input").value.trim();
+  if (!url) { toast("请输入URL", "bg-red-500"); return; }
+  const res = await fetch("/api/slots/" + currentSlotId + "/add-url", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ source_url: url, uploaded_by: "user" })
+  });
+  const d = await res.json();
+  if (!res.ok) { toast(d.error || "添加失败", "bg-red-500"); return; }
+  toast("URL资源已添加", "bg-green-600");
+  openSlotDetail(currentSlotId);
+  loadSlots();
+}
+
+async function setResourceStatus(rid, status) {
+  const res = await fetch("/api/resources/" + rid + "/status", {
+    method: "PUT", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ status: status })
+  });
+  if (!res.ok) { toast("操作失败", "bg-red-500"); return; }
+  const label = { active:"正在使用 ✅", inactive:"未使用 ⚠️", pending_delete:"待删除 🗑️" }[status] || status;
+  toast("已设为：" + label);
+  openSlotDetail(currentSlotId);
+  loadSlots();
+}
+
+async function deleteResource(rid) {
+  if (!confirm("确认立即删除这个资源？此操作不可恢复。")) return;
+  const res = await fetch("/api/resources/" + rid, { method:"DELETE" });
+  if (!res.ok) { toast("删除失败", "bg-red-500"); return; }
+  toast("已删除");
+  openSlotDetail(currentSlotId);
+  loadSlots();
+}
+
+function openCreateSlot() {
+  ["c-game-key","c-name","c-desc","c-meta"].forEach(function(id){ document.getElementById(id).value = ""; });
+  openModal("modal-create");
+}
+
+async function doCreateSlot() {
+  const gameKey = document.getElementById("c-game-key").value.trim();
+  const name    = document.getElementById("c-name").value.trim();
+  if (!gameKey || !name) { toast("game_key 和名称必填", "bg-red-500"); return; }
+  var meta = {};
+  const metaStr = document.getElementById("c-meta").value.trim();
+  if (metaStr) { try { meta = JSON.parse(metaStr); } catch(e) { toast("Metadata JSON 格式错误", "bg-red-500"); return; } }
+  const res = await fetch("/api/slots", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      game_key: gameKey, name: name,
+      description: document.getElementById("c-desc").value.trim(),
+      asset_type: document.getElementById("c-type").value,
+      category: document.getElementById("c-cat").value,
+      metadata: meta, created_by: "user"
+    })
+  });
+  const d = await res.json();
+  if (!res.ok) { toast(d.error || "创建失败", "bg-red-500"); return; }
+  toast("资源位创建成功", "bg-green-600");
+  closeModal("modal-create");
+  loadSlots();
+}
+
+async function openSyncPreview() {
+  const res = await fetch("/api/sync/preview");
+  const d = await res.json();
+  const delList = document.getElementById("sync-delete-list");
+  if (!d.will_delete.length) {
+    delList.innerHTML = '<p class="text-gray-400 text-xs">无待删除资源</p>';
   } else {
-    if(a.asset_type==='audio'){
-      prev.innerHTML='<div class="placeholder-audio" style="height:100%"><div style="font-size:36px;opacity:.35">&#127925;</div><div>暂无音频</div></div>';
-    } else {
-      var color=placeholderColor(a.name);
-      prev.innerHTML='<div class="placeholder-img" style="background:'+color+';height:100%"><span style="font-size:28px;color:rgba(255,255,255,.5)">'+esc(a.name.charAt(0))+'</span></div>';
-    }
+    delList.innerHTML = d.will_delete.map(function(r){
+      return '<div class="flex items-center gap-2 text-xs py-1 border-b border-red-100">'
+        + '<span class="text-red-500">🗑</span>'
+        + '<span class="text-gray-700">' + r.original_name + '</span>'
+        + '<span class="text-gray-400">slot: ' + r.slot_id.slice(0,8) + '...</span>'
+        + '</div>';
+    }).join("");
   }
-  // meta
-  document.getElementById('dt-meta').innerHTML=
-    '<div class="kv-row"><span class="kv-k">分类</span><span class="kv-v">'+esc(a.category)+'</span></div>'
-    +'<div class="kv-row"><span class="kv-k">类型</span><span class="kv-v">'+typeLabel(a.asset_type)+'</span></div>'
-    +(a.description?'<div class="kv-row"><span class="kv-k">描述</span><span class="kv-v">'+esc(a.description)+'</span></div>':'');
-  // status buttons
-  var sts=['confirmed','pending','empty'];
-  var stn=['已确认','待定','未填充'];
-  var stcls=['st-c','st-p','st-e'];
-  document.getElementById('dt-status').innerHTML=sts.map(function(s,i){
-    return '<button class="st-btn '+stcls[i]+(a.status===s?' on':'')+'" onclick="dtSetStatus(\''+s+'\')">'+stn[i]+'</button>';
-  }).join('');
-  // file history
-  var fhHtml='<div class="fhist">'+(a.files&&a.files.length?a.files.map(function(f){
-    return '<div class="fhist-item'+(f.is_active?' active-f':'')+'" onclick="activateFile(\''+aid+'\',\''+f.id+'\')" title="'+esc(f.original)+'">'
-      +(f.is_active?'&#10003; ':'')+'版本 '+(a.files.indexOf(f)+1)+'</div>';
-  }).join(''):'<span style="color:var(--t3);font-size:12px">暂无文件</span>')+'</div>';
-  document.getElementById('dt-files').innerHTML=fhHtml;
-  // notes
-  renderNotes(a.notes||[],aid);
-  // edit fields
-  document.getElementById('ea-id').value=aid;
-  document.getElementById('ea-name').value=a.name;
-  document.getElementById('ea-desc').value=a.description||'';
-  var ec=document.getElementById('ea-cat');
-  if(ec){for(var i=0;i<ec.options.length;i++){if(ec.options[i].value===a.category){ec.selectedIndex=i;break;}}}
-  var et=document.getElementById('ea-type');
-  if(et){for(var i=0;i<et.options.length;i++){if(et.options[i].value===a.asset_type){et.selectedIndex=i;break;}}}
-  open_('mDetail');
+  const manifest = d.manifest || {};
+  const total = Object.keys(manifest).length;
+  const active = Object.values(manifest).filter(function(v){ return !v.is_placeholder; }).length;
+  const placeholder = total - active;
+  document.getElementById("sync-manifest-count").innerHTML =
+    '<span class="text-green-700 font-semibold">' + active + ' 个有效资源</span>'
+    + '，<span class="text-gray-400">' + placeholder + ' 个占位资源</span>'
+    + '，共 ' + total + ' 个资源位';
+  openModal("modal-sync");
 }
 
-function renderNotes(notes,aid){
-  var el=document.getElementById('dt-notes');
-  if(!el)return;
-  var html=notes.map(function(n){
-    return '<div class="note-item"><span>'+esc(n.content)+'</span><button class="note-del" onclick="delNote(\''+aid+'\',\''+n.id+'\')">&#x2715;</button></div>';
-  }).join('');
-  el.innerHTML=html||'<div style="color:var(--t3);font-size:12px;padding:4px 0">暂无备注</div>';
+async function doSync() {
+  const res = await fetch("/api/sync", { method:"POST" });
+  const d = await res.json();
+  if (!res.ok) { toast("Sync 失败", "bg-red-500"); return; }
+  toast("Sync 完成！删除 " + d.deleted_count + " 个资源", "bg-green-600");
+  closeModal("modal-sync");
+  loadSlots();
 }
 
-async function dtSetStatus(st){
-  if(!detAsset)return;
-  await setStatus(detAsset.id,st);
-  detAsset.status=st;
-  var sts=['confirmed','pending','empty'];
-  var stn=['已确认','待定','未填充'];
-  var stcls=['st-c','st-p','st-e'];
-  document.querySelectorAll('#dt-status .st-btn').forEach(function(btn,i){
-    btn.classList.toggle('on',sts[i]===st);
+// 关闭 modal 点击外部
+document.addEventListener("click", function(e) {
+  ["modal-slot","modal-create","modal-sync"].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (e.target === el) closeModal(id);
   });
-  renderContent();
-}
-
-async function activateFile(aid,fid){
-  var r=await fetch('/api/assets/'+aid+'/files/'+fid+'/activate',{method:'POST'});
-  if(r.ok){toast('已切换版本');openDetail(aid);}
-  else toast('❌ 失败',true);
-}
-
-async function dtUpload(input){
-  var file=input.files[0];if(!file||!detAsset)return;
-  var fd=new FormData();fd.append('file',file);
-  var r=await fetch('/api/assets/'+detAsset.id+'/upload',{method:'POST',body:fd});
-  var d=await r.json();
-  if(r.ok){toast('文件已上传，状态自动更新为已确认');openDetail(detAsset.id);renderContent();}
-  else toast('❌ '+(d.error||'上传失败'),true);
-  input.value='';
-}
-
-async function submitEditAsset(){
-  var aid=document.getElementById('ea-id').value;
-  var name=document.getElementById('ea-name').value.trim();
-  if(!name){toast('请填写资源名称',true);return;}
-  var r=await fetch('/api/assets/'+aid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    name:name,category:document.getElementById('ea-cat').value,
-    asset_type:document.getElementById('ea-type').value,
-    description:document.getElementById('ea-desc').value.trim()
-  })});
-  if(r.ok){toast('已保存');await openDetail(aid);renderContent();}
-  else toast('❌ 保存失败',true);
-}
-
-async function deleteAsset(){
-  if(!detAsset)return;
-  if(!confirm('确认删除资源「'+detAsset.name+'」？'))return;
-  var r=await fetch('/api/assets/'+detAsset.id,{method:'DELETE'});
-  if(r.ok){close_('mDetail');toast('已删除');renderContent();}
-  else toast('❌ 删除失败',true);
-}
-
-async function addNote(){
-  if(!detAsset)return;
-  var inp=document.getElementById('note-inp');
-  var content=inp.value.trim();
-  if(!content)return;
-  var r=await fetch('/api/assets/'+detAsset.id+'/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:content})});
-  if(r.ok){inp.value='';var a=await(await fetch('/api/assets/'+detAsset.id)).json();detAsset=a;renderNotes(a.notes||[],a.id);}
-  else toast('❌ 失败',true);
-}
-
-async function delNote(aid,nid){
-  var r=await fetch('/api/assets/'+aid+'/notes/'+nid,{method:'DELETE'});
-  if(r.ok){var a=await(await fetch('/api/assets/'+aid)).json();detAsset=a;renderNotes(a.notes||[],a.id);}
-  else toast('❌ 失败',true);
-}
-
-// ── 配置 ────────────────────────────────────────────────
-
-async function openCfg(){
-  var txt=await(await fetch('/api/config/project')).text();
-  document.getElementById('cfg-txt').value=txt;
-  open_('mCfg');
-}
-async function saveCfg(){
-  var r=await fetch('/api/config/project/raw',{method:'PUT',headers:{'Content-Type':'text/plain'},body:document.getElementById('cfg-txt').value});
-  if(r.ok){close_('mCfg');toast('配置已保存');await loadCfg();}
-  else toast('❌ 保存失败',true);
-}
-
-// ── 通用 ────────────────────────────────────────────────
-
-function showImg(url){document.getElementById('iovImg').src=url;document.getElementById('iov').classList.add('open');}
-function open_(id){document.getElementById(id).classList.add('open');}
-function close_(id){document.getElementById(id).classList.remove('open');}
-function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-function toast(msg,err){
-  var w=document.getElementById('tw');var el=document.createElement('div');
-  el.className='toast'+(err?' err':'');el.textContent=msg;w.appendChild(el);
-  setTimeout(function(){el.remove();},3200);
-}
-document.querySelectorAll('.ov').forEach(function(o){
-  o.addEventListener('click',function(e){if(e.target===o)o.classList.remove('open');});
 });
-init();
 
+// 初始化
+loadSlots();
 </script>
 </body>
 </html>

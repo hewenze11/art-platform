@@ -1,40 +1,47 @@
 #!/usr/bin/env python3
 """
-ArtHub v3 - 个人创作者美术资源管理平台
-核心概念：
-  - Version（版本）: 一套美术方案，有一个"当前使用版本"
-  - Asset（资源槽）: 属于某版本某分类的一个资源位
-    status: confirmed(已确认使用) | pending(待定，在备选库) | empty(未填充，用占位资源)
-  - 备选库: 所有 status=pending 的资源
-  - 占位资源: status=empty 时前端显示彩色方块/默认音频
+Art Platform - 美术资源管理平台
+概念：
+  - ArtSlot（资源位）: 游戏中一个美术需求，有唯一 game_key
+  - ArtResource（资源）: 资源位下的具体文件
+    status: active(绿/正在使用) | inactive(黄/未使用) | pending_delete(红/待删除)
+  - 每个资源位最多一个 active 资源
+  - Sync: 删除 pending_delete + 返回完整 manifest
+  - Manifest: 游戏读取接口，无 active 则返回占位资源
 """
-import os, json, uuid, yaml, mimetypes
+import os, json, uuid, mimetypes
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 import sqlite3
 
-CONFIG_PATH = os.environ.get("CONFIG_PATH", "/app/project.yaml")
-DATA_DIR    = os.environ.get("DATA_DIR", "/data")
-DB_PATH     = os.path.join(DATA_DIR, "artplatform.db")
-UPLOAD_DIR  = os.path.join(DATA_DIR, "uploads")
+DATA_DIR   = os.environ.get("DATA_DIR", "/data")
+DB_PATH    = os.path.join(DATA_DIR, "artplatform.db")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
+
+PLACEHOLDER_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Albert_Einstein_Head.jpg/480px-Albert_Einstein_Head.jpg"
+PLACEHOLDER_AUDIO = "https://upload.wikimedia.org/wikipedia/commons/7/7e/Happy_Birthday_to_You.ogg"
+PLACEHOLDER_VIDEO = "https://www.w3schools.com/html/mov_bbb.mp4"
+
+ALLOWED_EXT = {
+    "image": {"png","jpg","jpeg","gif","webp","svg"},
+    "audio": {"mp3","wav","ogg","aac"},
+    "video": {"mp4","webm"},
+}
+MAX_MB = 50
 
 app = Flask(__name__, template_folder="templates")
 CORS(app)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
-def load_config():
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
+# ── DB ────────────────────────────────────────────────────
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 def now_iso():
@@ -43,383 +50,399 @@ def now_iso():
 def init_db():
     with get_db() as conn:
         conn.executescript("""
-        CREATE TABLE IF NOT EXISTS versions (
-            id           TEXT PRIMARY KEY,
-            name         TEXT NOT NULL,
-            description  TEXT DEFAULT '',
-            is_current   INTEGER DEFAULT 0,
-            created_at   TEXT NOT NULL
+        CREATE TABLE IF NOT EXISTS art_slots (
+            id          TEXT PRIMARY KEY,
+            game_key    TEXT UNIQUE NOT NULL,
+            name        TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            asset_type  TEXT DEFAULT 'image',
+            category    TEXT DEFAULT '其他',
+            metadata    TEXT DEFAULT '{}',
+            created_by  TEXT DEFAULT 'user',
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL
         );
-        CREATE TABLE IF NOT EXISTS assets (
-            id           TEXT PRIMARY KEY,
-            version_id   TEXT NOT NULL,
-            name         TEXT NOT NULL,
-            category     TEXT DEFAULT '其他',
-            asset_type   TEXT DEFAULT 'image',
-            description  TEXT DEFAULT '',
-            status       TEXT DEFAULT 'empty',
-            sort_order   INTEGER DEFAULT 0,
-            created_at   TEXT NOT NULL,
-            updated_at   TEXT NOT NULL,
-            FOREIGN KEY (version_id) REFERENCES versions(id)
-        );
-        CREATE TABLE IF NOT EXISTS files (
-            id           TEXT PRIMARY KEY,
-            asset_id     TEXT NOT NULL,
-            filename     TEXT NOT NULL,
-            original     TEXT NOT NULL,
-            file_size    INTEGER DEFAULT 0,
-            mime_type    TEXT DEFAULT '',
-            is_active    INTEGER DEFAULT 1,
-            uploaded_at  TEXT NOT NULL,
-            FOREIGN KEY (asset_id) REFERENCES assets(id)
-        );
-        CREATE TABLE IF NOT EXISTS notes (
-            id           TEXT PRIMARY KEY,
-            asset_id     TEXT NOT NULL,
-            content      TEXT NOT NULL,
-            created_at   TEXT NOT NULL,
-            FOREIGN KEY (asset_id) REFERENCES assets(id)
+        CREATE TABLE IF NOT EXISTS art_resources (
+            id            TEXT PRIMARY KEY,
+            slot_id       TEXT NOT NULL,
+            filename      TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            file_size     INTEGER DEFAULT 0,
+            mime_type     TEXT DEFAULT '',
+            status        TEXT DEFAULT 'inactive',
+            source_url    TEXT DEFAULT '',
+            note          TEXT DEFAULT '',
+            uploaded_by   TEXT DEFAULT 'user',
+            uploaded_at   TEXT NOT NULL,
+            FOREIGN KEY (slot_id) REFERENCES art_slots(id)
         );
         """)
     print(f"[DB] 初始化完成: {DB_PATH}")
+
+# ── helpers ───────────────────────────────────────────────
+
+def slot_to_dict(row, conn, include_resources=False):
+    d = dict(row)
+    try:
+        d["metadata"] = json.loads(d.get("metadata") or "{}")
+    except Exception:
+        d["metadata"] = {}
+    active = conn.execute(
+        "SELECT * FROM art_resources WHERE slot_id=? AND status='active' LIMIT 1", (d["id"],)
+    ).fetchone()
+    d["active_resource"] = dict(active) if active else None
+    d["resource_count"] = conn.execute(
+        "SELECT COUNT(*) FROM art_resources WHERE slot_id=?", (d["id"],)
+    ).fetchone()[0]
+    if include_resources:
+        rows = conn.execute(
+            "SELECT * FROM art_resources WHERE slot_id=? ORDER BY uploaded_at DESC", (d["id"],)
+        ).fetchall()
+        d["resources"] = [dict(r) for r in rows]
+    return d
+
+def placeholder_url(asset_type):
+    if asset_type == "audio":
+        return PLACEHOLDER_AUDIO
+    if asset_type == "video":
+        return PLACEHOLDER_VIDEO
+    return PLACEHOLDER_IMAGE
+
+def file_url(slot_id, filename):
+    host = request.host_url.rstrip("/")
+    return f"{host}/uploads/{slot_id}/{filename}"
 
 # ── 静态 ──────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    resp = send_file("templates/index.html")
-    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    resp.headers["Pragma"] = "no-cache"
-    resp.headers["Expires"] = "0"
-    return resp
+    return send_file("templates/index.html")
 
-@app.route("/api/docs")
-def api_docs():
-    try:
-        with open(os.path.join(os.path.dirname(__file__), "USAGE.md"), "r", encoding="utf-8") as f:
-            return f.read(), 200, {"Content-Type": "text/markdown; charset=utf-8"}
-    except FileNotFoundError:
-        return "文档不存在", 404
+@app.route("/uploads/<slot_id>/<filename>")
+def serve_file(slot_id, filename):
+    return send_from_directory(os.path.join(UPLOAD_DIR, slot_id), filename)
 
-# ── 配置 ──────────────────────────────────────────────────
+# ── 资源位 ────────────────────────────────────────────────
 
-@app.route("/api/config")
-def api_config():
-    cfg = load_config()
-    return jsonify({
-        "project": cfg.get("project", {}),
-        "categories": cfg.get("categories", ["角色", "场景", "UI", "特效", "音效", "动画", "其他"]),
-        "asset_types": cfg.get("asset_types", ["image", "audio", "video", "file"]),
-    })
-
-@app.route("/api/config/project", methods=["GET", "PUT"])
-def api_config_project():
-    if request.method == "GET":
-        try:
-            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-                return f.read(), 200, {"Content-Type": "text/plain; charset=utf-8"}
-        except FileNotFoundError:
-            return "配置文件不存在", 404
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "需要 JSON body"}), 400
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-        def deep_merge(base, patch):
-            for k, v in patch.items():
-                if isinstance(v, dict) and isinstance(base.get(k), dict):
-                    deep_merge(base[k], v)
-                else:
-                    base[k] = v
-        deep_merge(cfg, data)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/api/config/project/raw", methods=["PUT"])
-def api_config_raw():
-    text = request.get_data(as_text=True)
-    if not text.strip():
-        return jsonify({"error": "内容不能为空"}), 400
-    try:
-        yaml.safe_load(text)
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            f.write(text)
-        return jsonify({"ok": True})
-    except yaml.YAMLError as e:
-        return jsonify({"error": f"YAML 格式错误: {e}"}), 400
-
-# ── 版本 ──────────────────────────────────────────────────
-
-@app.route("/api/versions", methods=["GET"])
-def list_versions():
+@app.route("/api/slots", methods=["GET"])
+def list_slots():
+    category = request.args.get("category")
+    asset_type = request.args.get("asset_type")
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM versions ORDER BY created_at ASC").fetchall()
-    return jsonify([dict(r) for r in rows])
+        q = "SELECT * FROM art_slots WHERE 1=1"
+        p = []
+        if category:
+            q += " AND category=?"; p.append(category)
+        if asset_type:
+            q += " AND asset_type=?"; p.append(asset_type)
+        q += " ORDER BY category, created_at"
+        rows = conn.execute(q, p).fetchall()
+        return jsonify([slot_to_dict(r, conn) for r in rows])
 
-@app.route("/api/versions", methods=["POST"])
-def create_version():
+@app.route("/api/slots", methods=["POST"])
+def create_slot():
     data = request.get_json() or {}
+    if not data.get("game_key"):
+        return jsonify({"error": "game_key 必填"}), 400
     if not data.get("name"):
         return jsonify({"error": "name 必填"}), 400
-    vid = str(uuid.uuid4())
+    game_key = data["game_key"].strip().lower().replace(" ", "_")
+    sid = str(uuid.uuid4())
     now = now_iso()
-    copy_from = data.get("copy_from")
+    meta = data.get("metadata", {})
+    if isinstance(meta, dict):
+        meta = json.dumps(meta, ensure_ascii=False)
     with get_db() as conn:
-        conn.execute(
-            "INSERT INTO versions (id,name,description,is_current,created_at) VALUES (?,?,?,0,?)",
-            (vid, data["name"], data.get("description",""), now)
-        )
-        if copy_from:
-            src = conn.execute("SELECT * FROM assets WHERE version_id=?", (copy_from,)).fetchall()
-            for a in src:
-                new_id = str(uuid.uuid4())
-                conn.execute(
-                    "INSERT INTO assets (id,version_id,name,category,asset_type,description,status,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,'empty',?,?,?)",
-                    (new_id, vid, a["name"], a["category"], a["asset_type"], a["description"], a["sort_order"], now, now)
-                )
-    return jsonify({"id": vid, "ok": True}), 201
+        try:
+            conn.execute(
+                "INSERT INTO art_slots (id,game_key,name,description,asset_type,category,metadata,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (sid, game_key, data["name"], data.get("description",""),
+                 data.get("asset_type","image"), data.get("category","其他"),
+                 meta, data.get("created_by","user"), now, now)
+            )
+        except sqlite3.IntegrityError:
+            return jsonify({"error": f"game_key '{game_key}' 已存在"}), 409
+        row = conn.execute("SELECT * FROM art_slots WHERE id=?", (sid,)).fetchone()
+        return jsonify(slot_to_dict(row, conn)), 201
 
-@app.route("/api/versions/<vid>", methods=["GET"])
-def get_version(vid):
+@app.route("/api/slots/<sid>", methods=["GET"])
+def get_slot(sid):
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM versions WHERE id=?", (vid,)).fetchone()
+        row = conn.execute("SELECT * FROM art_slots WHERE id=?", (sid,)).fetchone()
         if not row:
             return jsonify({"error": "not found"}), 404
-        v = dict(row)
-        assets = conn.execute("SELECT * FROM assets WHERE version_id=? ORDER BY category, sort_order, created_at", (vid,)).fetchall()
-        v["assets"] = [dict(a) for a in assets]
-    return jsonify(v)
+        return jsonify(slot_to_dict(row, conn, include_resources=True))
 
-@app.route("/api/versions/<vid>", methods=["PUT"])
-def update_version(vid):
+@app.route("/api/slots/<sid>", methods=["PUT"])
+def update_slot(sid):
     data = request.get_json() or {}
     with get_db() as conn:
-        if not conn.execute("SELECT id FROM versions WHERE id=?", (vid,)).fetchone():
+        if not conn.execute("SELECT id FROM art_slots WHERE id=?", (sid,)).fetchone():
             return jsonify({"error": "not found"}), 404
-        sets, params = [], []
-        for k in ["name", "description"]:
-            if k in data:
-                sets.append(f"{k}=?"); params.append(data[k])
-        if sets:
-            params.append(vid)
-            conn.execute(f"UPDATE versions SET {', '.join(sets)} WHERE id=?", params)
-    return jsonify({"ok": True})
-
-@app.route("/api/versions/<vid>", methods=["DELETE"])
-def delete_version(vid):
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM versions WHERE id=?", (vid,)).fetchone()
-        if not row:
-            return jsonify({"error": "not found"}), 404
-        if dict(row)["is_current"]:
-            return jsonify({"error": "当前使用版本不可删除"}), 403
-        # 删除该版本下的所有资源及关联
-        aids = [r["id"] for r in conn.execute("SELECT id FROM assets WHERE version_id=?", (vid,)).fetchall()]
-        for aid in aids:
-            conn.execute("DELETE FROM files WHERE asset_id=?", (aid,))
-            conn.execute("DELETE FROM notes WHERE asset_id=?", (aid,))
-        conn.execute("DELETE FROM assets WHERE version_id=?", (vid,))
-        conn.execute("DELETE FROM versions WHERE id=?", (vid,))
-    return jsonify({"ok": True})
-
-@app.route("/api/versions/<vid>/set-current", methods=["POST"])
-def set_current_version(vid):
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM versions WHERE id=?", (vid,)).fetchone():
-            return jsonify({"error": "not found"}), 404
-        conn.execute("UPDATE versions SET is_current=0")
-        conn.execute("UPDATE versions SET is_current=1 WHERE id=?", (vid,))
-    return jsonify({"ok": True})
-
-# ── 资源 ──────────────────────────────────────────────────
-
-@app.route("/api/versions/<vid>/assets", methods=["GET"])
-def list_assets(vid):
-    status   = request.args.get("status")
-    category = request.args.get("category")
-    with get_db() as conn:
-        q = "SELECT * FROM assets WHERE version_id=?"
-        p = [vid]
-        if status:   q += " AND status=?";   p.append(status)
-        if category: q += " AND category=?"; p.append(category)
-        q += " ORDER BY category, sort_order, created_at"
-        rows = conn.execute(q, p).fetchall()
-        result = []
-        for r in rows:
-            a = dict(r)
-            a["active_file"] = None
-            f = conn.execute("SELECT * FROM files WHERE asset_id=? AND is_active=1 ORDER BY uploaded_at DESC LIMIT 1", (r["id"],)).fetchone()
-            if f:
-                a["active_file"] = dict(f)
-            result.append(a)
-    return jsonify(result)
-
-@app.route("/api/versions/<vid>/assets", methods=["POST"])
-def create_asset(vid):
-    data = request.get_json()
-    if not data or not data.get("name"):
-        return jsonify({"error": "name 必填"}), 400
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM versions WHERE id=?", (vid,)).fetchone():
-            return jsonify({"error": "版本不存在"}), 404
-        aid = str(uuid.uuid4())
-        now = now_iso()
-        conn.execute(
-            "INSERT INTO assets (id,version_id,name,category,asset_type,description,status,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,'empty',?,?,?)",
-            (aid, vid, data["name"], data.get("category","其他"), data.get("asset_type","image"), data.get("description",""), data.get("sort_order",0), now, now)
-        )
-    return jsonify({"id": aid, "ok": True}), 201
-
-@app.route("/api/assets/<aid>", methods=["GET"])
-def get_asset(aid):
-    with get_db() as conn:
-        row = conn.execute("SELECT * FROM assets WHERE id=?", (aid,)).fetchone()
-        if not row:
-            return jsonify({"error": "not found"}), 404
-        a = dict(row)
-        a["files"] = [dict(r) for r in conn.execute("SELECT * FROM files WHERE asset_id=? ORDER BY uploaded_at DESC", (aid,)).fetchall()]
-        a["notes"] = [dict(r) for r in conn.execute("SELECT * FROM notes WHERE asset_id=? ORDER BY created_at ASC", (aid,)).fetchall()]
-    return jsonify(a)
-
-@app.route("/api/assets/<aid>", methods=["PUT"])
-def update_asset(aid):
-    data = request.get_json() or {}
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM assets WHERE id=?", (aid,)).fetchone():
-            return jsonify({"error": "not found"}), 404
-        allowed = ["name","description","category","asset_type","status","sort_order"]
+        allowed = ["name","description","category","asset_type"]
         sets, params = [], []
         for k in allowed:
             if k in data:
                 sets.append(f"{k}=?"); params.append(data[k])
+        if "metadata" in data:
+            meta = data["metadata"]
+            if isinstance(meta, dict):
+                meta = json.dumps(meta, ensure_ascii=False)
+            sets.append("metadata=?"); params.append(meta)
         if not sets:
             return jsonify({"error": "无可更新字段"}), 400
-        sets.append("updated_at=?"); params.append(now_iso()); params.append(aid)
-        conn.execute(f"UPDATE assets SET {', '.join(sets)} WHERE id=?", params)
+        sets.append("updated_at=?"); params.append(now_iso()); params.append(sid)
+        conn.execute(f"UPDATE art_slots SET {', '.join(sets)} WHERE id=?", params)
     return jsonify({"ok": True})
 
-@app.route("/api/assets/<aid>", methods=["DELETE"])
-def delete_asset(aid):
+@app.route("/api/slots/<sid>", methods=["DELETE"])
+def delete_slot(sid):
     with get_db() as conn:
-        if not conn.execute("SELECT id FROM assets WHERE id=?", (aid,)).fetchone():
+        if not conn.execute("SELECT id FROM art_slots WHERE id=?", (sid,)).fetchone():
             return jsonify({"error": "not found"}), 404
-        conn.execute("DELETE FROM files WHERE asset_id=?", (aid,))
-        conn.execute("DELETE FROM notes WHERE asset_id=?", (aid,))
-        conn.execute("DELETE FROM assets WHERE id=?", (aid,))
+        resources = conn.execute("SELECT * FROM art_resources WHERE slot_id=?", (sid,)).fetchall()
+        for r in resources:
+            fp = os.path.join(UPLOAD_DIR, sid, r["filename"])
+            if os.path.exists(fp):
+                os.remove(fp)
+        conn.execute("DELETE FROM art_resources WHERE slot_id=?", (sid,))
+        conn.execute("DELETE FROM art_slots WHERE id=?", (sid,))
+    slot_dir = os.path.join(UPLOAD_DIR, sid)
+    if os.path.isdir(slot_dir):
+        try: os.rmdir(slot_dir)
+        except: pass
     return jsonify({"ok": True})
 
-@app.route("/api/assets/<aid>/status", methods=["POST"])
-def set_asset_status(aid):
-    data = request.get_json() or {}
-    status = data.get("status","")
-    if status not in ("confirmed","pending","empty"):
-        return jsonify({"error": "status 必须是 confirmed / pending / empty"}), 400
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM assets WHERE id=?", (aid,)).fetchone():
-            return jsonify({"error": "not found"}), 404
-        conn.execute("UPDATE assets SET status=?, updated_at=? WHERE id=?", (status, now_iso(), aid))
-    return jsonify({"ok": True})
+# ── 资源 ──────────────────────────────────────────────────
 
-# ── 文件 ──────────────────────────────────────────────────
-
-@app.route("/api/assets/<aid>/upload", methods=["POST"])
-def upload_file(aid):
-    cfg = load_config()
-    allowed_ext = set(cfg.get("storage",{}).get("allowed_extensions", ["png","jpg","jpeg","gif","webp","psd","svg","mp4","mp3","wav","ogg","fbx","obj","unity3d"]))
-    max_mb = cfg.get("storage",{}).get("max_file_size_mb", 50)
+@app.route("/api/slots/<sid>/upload", methods=["POST"])
+def upload_resource(sid):
     with get_db() as conn:
-        row = conn.execute("SELECT * FROM assets WHERE id=?", (aid,)).fetchone()
-        if not row:
-            return jsonify({"error": "not found"}), 404
+        slot = conn.execute("SELECT * FROM art_slots WHERE id=?", (sid,)).fetchone()
+        if not slot:
+            return jsonify({"error": "资源位不存在"}), 404
+        asset_type = slot["asset_type"]
+
     if "file" not in request.files:
-        return jsonify({"error": "no file"}), 400
+        return jsonify({"error": "缺少 file 字段"}), 400
     f = request.files["file"]
-    ext = f.filename.rsplit(".",1)[-1].lower() if "." in f.filename else ""
-    if ext not in allowed_ext:
-        return jsonify({"error": f"不支持的文件类型: {ext}"}), 400
+    if not f.filename:
+        return jsonify({"error": "文件名为空"}), 400
+
+    ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
+    allowed = set()
+    for exts in ALLOWED_EXT.values():
+        allowed |= exts
+    if ext not in allowed:
+        return jsonify({"error": f"不支持的文件类型: .{ext}，允许: {', '.join(sorted(allowed))}"}), 400
+
     content = f.read()
-    if len(content) > max_mb * 1024 * 1024:
-        return jsonify({"error": f"文件超过 {max_mb}MB 限制"}), 413
-    fid = str(uuid.uuid4())
-    safe_name = f"{fid}.{ext}"
-    dest_dir = os.path.join(UPLOAD_DIR, aid)
+    if len(content) > MAX_MB * 1024 * 1024:
+        return jsonify({"error": f"文件超过 {MAX_MB}MB 限制"}), 413
+
+    rid = str(uuid.uuid4())
+    safe_name = f"{rid}.{ext}"
+    dest_dir = os.path.join(UPLOAD_DIR, sid)
     os.makedirs(dest_dir, exist_ok=True)
     with open(os.path.join(dest_dir, safe_name), "wb") as out:
         out.write(content)
+
+    uploaded_by = request.form.get("uploaded_by", "user")
+    note = request.form.get("note", "")
     now = now_iso()
     with get_db() as conn:
-        # 旧文件设为非活跃
-        conn.execute("UPDATE files SET is_active=0 WHERE asset_id=?", (aid,))
         conn.execute(
-            "INSERT INTO files (id,asset_id,filename,original,file_size,mime_type,is_active,uploaded_at) VALUES (?,?,?,?,?,?,1,?)",
-            (fid, aid, safe_name, f.filename, len(content), f.mimetype or "", now)
+            "INSERT INTO art_resources (id,slot_id,filename,original_name,file_size,mime_type,status,source_url,note,uploaded_by,uploaded_at) VALUES (?,?,?,?,?,?,'inactive','',?,?,?)",
+            (rid, sid, safe_name, f.filename, len(content), f.mimetype or "", note, uploaded_by, now)
         )
-        # 上传后自动确认
-        conn.execute("UPDATE assets SET status='confirmed', updated_at=? WHERE id=?", (now, aid))
-    return jsonify({"file_id": fid, "filename": safe_name, "ok": True}), 201
+        row = conn.execute("SELECT * FROM art_resources WHERE id=?", (rid,)).fetchone()
+    r = dict(row)
+    r["url"] = file_url(sid, safe_name)
+    return jsonify(r), 201
 
-@app.route("/api/assets/<aid>/files/<fid>/activate", methods=["POST"])
-def activate_file(aid, fid):
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM files WHERE id=? AND asset_id=?", (fid, aid)).fetchone():
-            return jsonify({"error": "not found"}), 404
-        conn.execute("UPDATE files SET is_active=0 WHERE asset_id=?", (aid,))
-        conn.execute("UPDATE files SET is_active=1 WHERE id=?", (fid,))
-    return jsonify({"ok": True})
-
-@app.route("/api/uploads/<aid>/<filename>")
-def serve_file(aid, filename):
-    return send_from_directory(os.path.join(UPLOAD_DIR, aid), filename)
-
-# ── 备注 ──────────────────────────────────────────────────
-
-@app.route("/api/assets/<aid>/notes", methods=["GET"])
-def list_notes(aid):
-    with get_db() as conn:
-        rows = conn.execute("SELECT * FROM notes WHERE asset_id=? ORDER BY created_at ASC", (aid,)).fetchall()
-    return jsonify([dict(r) for r in rows])
-
-@app.route("/api/assets/<aid>/notes", methods=["POST"])
-def create_note(aid):
+@app.route("/api/slots/<sid>/add-url", methods=["POST"])
+def add_url_resource(sid):
+    """AI 调用：通过 URL 添加资源（适合添加音乐链接）"""
     data = request.get_json() or {}
-    if not data.get("content"):
-        return jsonify({"error": "content 必填"}), 400
-    with get_db() as conn:
-        if not conn.execute("SELECT id FROM assets WHERE id=?", (aid,)).fetchone():
-            return jsonify({"error": "not found"}), 404
-        nid = str(uuid.uuid4())
-        conn.execute("INSERT INTO notes (id,asset_id,content,created_at) VALUES (?,?,?,?)", (nid, aid, data["content"], now_iso()))
-    return jsonify({"id": nid, "ok": True}), 201
+    source_url = data.get("source_url", "").strip()
+    if not source_url:
+        return jsonify({"error": "source_url 必填"}), 400
 
-@app.route("/api/assets/<aid>/notes/<nid>", methods=["DELETE"])
-def delete_note(aid, nid):
     with get_db() as conn:
-        if not conn.execute("SELECT id FROM notes WHERE id=? AND asset_id=?", (nid, aid)).fetchone():
+        if not conn.execute("SELECT id FROM art_slots WHERE id=?", (sid,)).fetchone():
+            return jsonify({"error": "资源位不存在"}), 404
+
+    rid = str(uuid.uuid4())
+    now = now_iso()
+    original_name = source_url.split("/")[-1].split("?")[0] or "remote_resource"
+    ext = original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
+    mime = mimetypes.guess_type(original_name)[0] or ""
+
+    with get_db() as conn:
+        conn.execute(
+            "INSERT INTO art_resources (id,slot_id,filename,original_name,file_size,mime_type,status,source_url,note,uploaded_by,uploaded_at) VALUES (?,?,?,?,0,?,'inactive',?,?,?,?)",
+            (rid, sid, f"url_{rid}.{ext}" if ext else f"url_{rid}", original_name,
+             mime, source_url, data.get("note",""), data.get("uploaded_by","ai"), now)
+        )
+        row = conn.execute("SELECT * FROM art_resources WHERE id=?", (rid,)).fetchone()
+    r = dict(row)
+    r["url"] = source_url  # URL资源直接返回原始URL
+    return jsonify(r), 201
+
+@app.route("/api/resources/<rid>/status", methods=["PUT"])
+def set_resource_status(rid):
+    data = request.get_json() or {}
+    status = data.get("status", "")
+    if status not in ("active", "inactive", "pending_delete"):
+        return jsonify({"error": "status 必须是 active / inactive / pending_delete"}), 400
+
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM art_resources WHERE id=?", (rid,)).fetchone()
+        if not row:
             return jsonify({"error": "not found"}), 404
-        conn.execute("DELETE FROM notes WHERE id=?", (nid,))
+        slot_id = row["slot_id"]
+
+        if status == "active":
+            # 同一资源位其他资源变为 inactive
+            conn.execute(
+                "UPDATE art_resources SET status='inactive' WHERE slot_id=? AND id!=?",
+                (slot_id, rid)
+            )
+        conn.execute("UPDATE art_resources SET status=? WHERE id=?", (status, rid))
     return jsonify({"ok": True})
+
+@app.route("/api/resources/<rid>", methods=["DELETE"])
+def delete_resource(rid):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM art_resources WHERE id=?", (rid,)).fetchone()
+        if not row:
+            return jsonify({"error": "not found"}), 404
+        r = dict(row)
+        # 删除文件（URL资源无本地文件）
+        if not r["source_url"]:
+            fp = os.path.join(UPLOAD_DIR, r["slot_id"], r["filename"])
+            if os.path.exists(fp):
+                os.remove(fp)
+        conn.execute("DELETE FROM art_resources WHERE id=?", (rid,))
+    return jsonify({"ok": True})
+
+# ── Sync ──────────────────────────────────────────────────
+
+def build_manifest(conn):
+    slots = conn.execute("SELECT * FROM art_slots ORDER BY category, created_at").fetchall()
+    manifest = {}
+    for slot in slots:
+        s = dict(slot)
+        game_key = s["game_key"]
+        active = conn.execute(
+            "SELECT * FROM art_resources WHERE slot_id=? AND status='active' LIMIT 1", (s["id"],)
+        ).fetchone()
+        if active:
+            a = dict(active)
+            if a["source_url"]:
+                url = a["source_url"]
+            else:
+                url = file_url(s["id"], a["filename"])
+            manifest[game_key] = {
+                "game_key": game_key,
+                "slot_name": s["name"],
+                "asset_type": s["asset_type"],
+                "category": s["category"],
+                "url": url,
+                "is_placeholder": False,
+                "resource_id": a["id"],
+                "original_name": a["original_name"],
+                "metadata": json.loads(s.get("metadata") or "{}"),
+            }
+        else:
+            manifest[game_key] = {
+                "game_key": game_key,
+                "slot_name": s["name"],
+                "asset_type": s["asset_type"],
+                "category": s["category"],
+                "url": placeholder_url(s["asset_type"]),
+                "is_placeholder": True,
+                "resource_id": None,
+                "original_name": None,
+                "metadata": json.loads(s.get("metadata") or "{}"),
+            }
+    return manifest
+
+@app.route("/api/sync/preview", methods=["GET"])
+def sync_preview():
+    with get_db() as conn:
+        to_delete = conn.execute(
+            "SELECT r.*, s.game_key FROM art_resources r JOIN art_slots s ON r.slot_id=s.id WHERE r.status='pending_delete'"
+        ).fetchall()
+        manifest = build_manifest(conn)
+    return jsonify({
+        "will_delete": [dict(r) for r in to_delete],
+        "manifest": manifest,
+    })
+
+@app.route("/api/sync", methods=["POST"])
+def do_sync():
+    deleted = []
+    with get_db() as conn:
+        to_delete = conn.execute(
+            "SELECT * FROM art_resources WHERE status='pending_delete'"
+        ).fetchall()
+        for r in to_delete:
+            r = dict(r)
+            if not r["source_url"]:
+                fp = os.path.join(UPLOAD_DIR, r["slot_id"], r["filename"])
+                if os.path.exists(fp):
+                    os.remove(fp)
+            conn.execute("DELETE FROM art_resources WHERE id=?", (r["id"],))
+            deleted.append(r["id"])
+        manifest = build_manifest(conn)
+    return jsonify({
+        "ok": True,
+        "deleted_count": len(deleted),
+        "deleted_ids": deleted,
+        "manifest": manifest,
+    })
+
+# ── Manifest ──────────────────────────────────────────────
+
+@app.route("/api/manifest", methods=["GET"])
+def get_manifest():
+    with get_db() as conn:
+        return jsonify(build_manifest(conn))
+
+@app.route("/api/manifest/<game_key>", methods=["GET"])
+def get_manifest_key(game_key):
+    with get_db() as conn:
+        slot = conn.execute("SELECT * FROM art_slots WHERE game_key=?", (game_key,)).fetchone()
+        if not slot:
+            return jsonify({"error": f"game_key '{game_key}' 不存在"}), 404
+        manifest = build_manifest(conn)
+    return jsonify(manifest.get(game_key))
 
 # ── 统计 ──────────────────────────────────────────────────
 
-@app.route("/api/stats")
+@app.route("/api/stats", methods=["GET"])
 def stats():
     with get_db() as conn:
-        versions = conn.execute("SELECT COUNT(*) FROM versions").fetchone()[0]
-        total    = conn.execute("SELECT COUNT(*) FROM assets").fetchone()[0]
-        confirmed= conn.execute("SELECT COUNT(*) FROM assets WHERE status='confirmed'").fetchone()[0]
-        pending  = conn.execute("SELECT COUNT(*) FROM assets WHERE status='pending'").fetchone()[0]
-        empty    = conn.execute("SELECT COUNT(*) FROM assets WHERE status='empty'").fetchone()[0]
-    return jsonify({"versions": versions, "total": total, "confirmed": confirmed, "pending": pending, "empty": empty})
+        total_slots = conn.execute("SELECT COUNT(*) FROM art_slots").fetchone()[0]
+        active      = conn.execute("SELECT COUNT(*) FROM art_resources WHERE status='active'").fetchone()[0]
+        inactive    = conn.execute("SELECT COUNT(*) FROM art_resources WHERE status='inactive'").fetchone()[0]
+        pending_del = conn.execute("SELECT COUNT(*) FROM art_resources WHERE status='pending_delete'").fetchone()[0]
+        no_active   = conn.execute(
+            "SELECT COUNT(*) FROM art_slots WHERE id NOT IN (SELECT slot_id FROM art_resources WHERE status='active')"
+        ).fetchone()[0]
+    return jsonify({
+        "total_slots": total_slots,
+        "active": active,
+        "inactive": inactive,
+        "pending_delete": pending_del,
+        "slots_no_active": no_active,
+    })
+
+# ── 启动 ──────────────────────────────────────────────────
 
 if __name__ == "__main__":
     init_db()
-    cfg = load_config()
-    port  = cfg.get("server",{}).get("port", 8899)
-    debug = cfg.get("server",{}).get("debug", False)
-    print(f"[START] ArtHub v3 启动，端口 {port}")
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    port = int(os.environ.get("PORT", 8899))
+    print(f"[START] Art Platform 启动，端口 {port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
